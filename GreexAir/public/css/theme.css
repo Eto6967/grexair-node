@@ -1,0 +1,68 @@
+:root {
+    /* --- SÖTÉT MÓD (ALAPÉRTELMEZETT) --- */
+    
+    /* Háttér és Panelek */
+    --bg-body: #050505;       /* Mélyfekete */
+    --bg-card: #0a0a0a;       /* Szinte fekete panel */
+    --bg-nav: rgba(0, 0, 0, 0.8);
+    
+    /* Szövegszínek */
+    --text-primary: #e5e5e5;  /* Törtfehér */
+    --text-secondary: #a3a3a3;
+    --text-muted: #525252;
+    
+    /* Keretek */
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-highlight: rgba(255, 255, 255, 0.15);
+    
+    /* Funkcionális színek */
+    --accent: #3b82f6;        
+    --accent-dim: rgba(59, 130, 246, 0.08);
+    
+    --success: #10b981;
+    --success-dim: rgba(16, 185, 129, 0.08);
+    
+    --danger: #ef4444;
+    --danger-dim: rgba(239, 68, 68, 0.08);
+    
+    --radius: 8px;
+    --shadow-card: none;
+}
+
+/* --- VILÁGOS MÓD (OPCIONÁLIS) --- */
+body.light-mode {
+    /* Háttér és Panelek */
+    --bg-body: #ffffff;       /* Tiszta fehér */
+    --bg-card: #f3f4f6;       /* Világosszürke kártyák */
+    --bg-nav: rgba(255, 255, 255, 0.85);
+    
+    /* Szövegszínek */
+    --text-primary: #111827;  /* Sötét */
+    --text-secondary: #4b5563;
+    --text-muted: #9ca3af;
+    
+    /* Keretek */
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-highlight: rgba(0, 0, 0, 0.15);
+    
+    /* Funkcionális színek */
+    --accent: #2563eb;
+    --accent-dim: rgba(37, 99, 235, 0.1); 
+    
+    --success: #059669;
+    --success-dim: rgba(5, 150, 105, 0.1);
+    
+    --danger: #dc2626;
+    --danger-dim: rgba(220, 38, 38, 0.1);
+    
+    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+body {
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}

@@ -1,0 +1,30 @@
+services:
+  greexair-app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: greexair-app
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - DB_URL=${DB_URL}
+      - TZ=Europe/Budapest
+    ports:
+      - "80:5000"
+    restart: always
+
+  greexair-uploader:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: greexair-uploader
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - SERIAL_PORT=/dev/ttyUSB0
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    command: ["node", "uploader.js"]
+    restart: always

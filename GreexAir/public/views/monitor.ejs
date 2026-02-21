@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>GrexAir - Levegőminőség Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .kpi-container { display: flex; gap: 20px; margin-bottom: 20px; }
+        .kpi-box { padding: 15px; border: 1px solid #ccc; border-radius: 8px; flex: 1; text-align: center; }
+        .chart-container { width: 100%; max-width: 1200px; margin: auto; height: 500px; }
+    </style>
+</head>
+<body>
+    <h1>GrexAir Monitor</h1>
+    
+    <div id="status-bar">
+        <h2 id="sensor-status">Kapcsolódás folyamatban...</h2>
+        <h3 id="air-status" class="status-neutral">Várakozás...</h3>
+        <p>Utolsó frissítés: <span id="last-update">-</span></p>
+    </div>
+
+    <div>
+        <select id="date-selector">
+            <% available_dates.forEach(function(date) { %>
+                <option value="<%= date %>" <%= date === default_date ? 'selected' : '' %>><%= date %></option>
+            <% }); %>
+        </select>
+        <button id="btn-history">Adatok Lekérése</button>
+        <button id="btn-live">Vissza az Élő adatokhoz</button>
+    </div>
+
+    <div class="kpi-container">
+        <div class="kpi-box"><h3>Jelenlegi</h3><h2 id="kpi-current">-</h2></div>
+        <div class="kpi-box"><h3>Átlag</h3><h2 id="kpi-avg">-</h2></div>
+        <div class="kpi-box"><h3>Maximum</h3><h2 id="kpi-max">-</h2></div>
+        <div class="kpi-box"><h3>Minimum</h3><h2 id="kpi-min">-</h2></div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="co2Chart"></canvas>
+    </div>
+
+    <script src="/static/js/monitor.js"></script>
+</body>
+</html>

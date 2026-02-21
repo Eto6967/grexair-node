@@ -1,0 +1,11 @@
+# Környezeti változók és titkos adatok
+.env
+*.env
+
+# Node.js specifikus mappák és fájlok (ha még nincsenek benne)
+node_modules/
+npm-debug.log
+
+# Egyéb felesleges rendszerfájlok (opcionális, de hasznos)
+.DS_Store
+Thumbs.db

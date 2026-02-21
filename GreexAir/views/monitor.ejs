@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GrexAir Monitoring</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        .glass-chart-card { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 15px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
+        .chart-title { color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.7rem; margin: 0 0 10px 0; font-weight: 600; text-align: left; padding-left: 5px; }
+        .chart-subtitle { text-transform: none; font-weight: 400; opacity: 0.5; letter-spacing: normal; }
+        
+        .kpi-card.status-neutral-card { border-top: 2px solid var(--accent); background: linear-gradient(180deg, var(--accent-dim) 0%, transparent 40%); transition: all 0.3s ease; }
+        .kpi-card.status-good-card { border-top: 2px solid var(--success); background: linear-gradient(180deg, var(--success-dim) 0%, transparent 40%); transition: all 0.3s ease; }
+        .kpi-card.status-warning-card { border-top: 2px solid #f59e0b; background: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, transparent 40%); transition: all 0.3s ease; }
+        .kpi-card.status-danger-card { border-top: 2px solid var(--danger); background: linear-gradient(180deg, var(--danger-dim) 0%, transparent 40%); transition: all 0.3s ease; }
+        .toast-warning { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #d97706; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 500; }
+        .controls-container { display: flex; gap: 10px; align-items: center; }
+        .date-input { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 8px 12px; border-radius: 6px; font-family: 'Inter', sans-serif; cursor: pointer; font-size: 0.85rem; }
+        .date-input.active-input { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+        .date-input option { background: var(--bg-body, #1a1a1a); color: var(--text-primary, #ffffff); }
+        
+        .live-btn { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 0.85rem; transition: all 0.3s ease; }
+        .live-btn .dot { height: 10px; width: 10px; border-radius: 50%; background-color: var(--text-muted); transition: background-color 0.3s; }
+        .live-btn.active { background-color: var(--success-dim); border-color: var(--success); color: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+        .live-btn.active .dot { background-color: var(--success); animation: pulse 1.5s infinite; }
+        
+        .monitor-container { width: 100%; max-width: 100%; overflow-x: hidden; padding: 0 10px; box-sizing: border-box; }
+        .hero-section { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .hero-text-container h1 { margin: 0; line-height: 1.2; font-size: 2rem;}
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .kpi-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 15px 10px; text-align: center; min-width: 0; }
+        .kpi-card.min-card { border-top: 2px solid var(--success); background: linear-gradient(180deg, var(--success-dim) 0%, transparent 40%); }
+        .kpi-card.max-card { border-top: 2px solid var(--danger); background: linear-gradient(180deg, var(--danger-dim) 0%, transparent 40%); }
+        .value-group { display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 2px; }
+        .kpi-value { font-size: clamp(1.5rem, 6vw, 2rem); font-weight: bold; color: var(--text-primary); transition: color 0.3s; }
+        .unit { font-size: 0.8rem; color: var(--text-muted); }
+        .kpi-card h3 { margin: 5px 0 0 0; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); }
+        .status-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: space-between; }
+        .status-box, .last-update-box { font-size: 0.85rem; flex-grow: 1; min-width: 200px; }
+        .status-box { padding: 8px 15px; border-radius: 6px; text-align: center; }
+        .last-update-box { text-align: right; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; }
+        .status-neutral { background-color: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border-subtle); }
+        .status-good { background-color: var(--success-dim); color: var(--success); border: 1px solid var(--success-dim); }
+        .status-warning { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-danger { background-color: var(--danger-dim); color: var(--danger); border: 1px solid var(--danger-dim); }
+        
+        .chart-main-h { height: 380px; }
+        .chart-sub-h { height: 220px; }
+        .chart-bar-h { height: 160px; }
+
+        @media (max-width: 768px) { 
+            .hero-section { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 15px; } 
+            .controls-container { width: 100%; justify-content: space-between; } 
+            .date-input { flex: 1; min-width: 130px; }
+            .live-btn { flex: 1; min-width: 130px; justify-content: center; }
+            .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .kpi-card { padding: 12px 5px; }
+            .kpi-value { font-size: 1.4rem; }
+            .status-grid { flex-direction: column; gap: 8px; }
+            .last-update-box { justify-content: center; text-align: center; }
+            .chart-main-h { height: 320px; }
+            .chart-sub-h { height: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="preloader"><div class="loader-content"><img src="/static/logo.png" alt="Loading..." class="pulse-logo"></div></div>
+
+    <nav>
+        <div class="brand-wrapper"><a href="/"><img src="/static/logo.png" alt="GrexAir" class="brand-logo" onerror="this.style.display='none'"></a></div>
+        <div class="nav-menu">
+            <a href="/" class="nav-link active">Monitoring</a>
+            <a href="/demo" class="nav-link">Demo</a>
+            <a href="/upload" class="nav-link">Feltöltés</a>
+            <button id="theme-toggle" class="nav-btn"><i class="fas fa-sun"></i></button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="monitor-container">
+            <% if (!start_live) { %>
+            <div id="no-data-warning" class="toast-warning">
+                <i class="fas fa-info-circle"></i>
+                <span>Ma még nem érkezett mérés. Automatikusan a legutolsó aktív nap (<strong><%= default_date %></strong>) adatait látod. 
+                <a href="#" onclick="switchToLive(); return false;" style="color: inherit; text-decoration: underline;">Ugrás élő nézetre...</a></span>
+            </div>
+            <% } %>
+
+            <div class="hero-section">
+                <div class="hero-text-container">
+                    <h1>Monitoring</h1>
+                </div>
+                <div class="controls-container">
+                    <select id="history-date" class="date-input">
+                        <% available_dates.forEach(function(date) { %>
+                            <option value="<%= date %>" <%= date === default_date ? 'selected' : '' %>><%= date %><%= date === today_date ? ' (Ma / Élő)' : '' %></option>
+                        <% }); %>
+                    </select>
+                    <button id="live-btn" class="live-btn <%= start_live ? 'active' : '' %>" onclick="switchToLive()">
+                        <span class="dot"></span> <span>ÉLŐ NÉZET</span>
+                    </button>
+                </div>
+            </div>
+
+            <span class="section-title" id="section-title" style="margin-top:10px;"><%= start_live ? 'Mai aktuális értékek' : 'Archívum: ' + default_date %></span>
+            
+            <div class="kpi-grid">
+                <div id="current-kpi-card" class="kpi-card status-neutral-card"><div class="card-content"><div class="value-group"><span id="current-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Aktuális</h3></div></div>
+                <div class="kpi-card status-neutral-card"><div class="card-content"><div class="value-group"><span id="avg-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Átlag</h3></div></div>
+                <div class="kpi-card min-card"><div class="card-content"><div class="value-group"><span id="min-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Min</h3></div></div>
+                <div class="kpi-card max-card"><div class="card-content"><div class="value-group"><span id="max-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Max</h3></div></div>
+            </div>
+
+            <div class="status-grid">
+                <div id="status-box" class="status-box status-neutral">Állapot: <span>...</span></div>
+                <div class="last-update-box">Frissítve: <span id="last-update" style="margin-left: 5px;">--:--:--</span></div>
+            </div>
+
+            <div id="graph-container" class="graph-wrapper" style="padding: 10px 0; display: flex; flex-direction: column; gap: 20px; background: transparent; border: none;">
+                <div class="glass-chart-card chart-main-h"><h4 class="chart-title">CO₂ Koncentráció <span class="chart-subtitle">(Trend & Nyers mérés)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="co2Chart"></canvas></div></div>
+                <div class="glass-chart-card chart-sub-h"><h4 class="chart-title">Változás sebessége <span class="chart-subtitle">(ppm/perc)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="speedChart"></canvas></div></div>
+                <div class="glass-chart-card chart-sub-h"><h4 class="chart-title">Folyamat dinamikája <span class="chart-subtitle">(ppm/perc²)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="accelChart"></canvas></div></div>
+                <div class="glass-chart-card chart-bar-h"><h4 class="chart-title">Időbeli eloszlás <span class="chart-subtitle">(perc zónánként)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="timeBarChart"></canvas></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script type="text/javascript">
+        var socket;
+        var isLiveMode = <%= start_live %>;
+        var todayDate = "<%= today_date %>";
+        var co2Chart, speedChart, accelChart, timeBarChart;
+
+        function createGradient(context, colorStart, colorEnd) {
+            const chartArea = context.chart.chartArea;
+            if (!chartArea) return 'rgba(0,0,0,0)'; 
+            const gradient = context.chart.ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            gradient.addColorStop(0, colorStart);
+            gradient.addColorStop(1, colorEnd);
+            return gradient;
+        }
+
+        function formatLocalTime(timeStr) {
+            if (!timeStr) return "--:--";
+            try {
+                const d = new Date(timeStr.replace(' ', 'T') + 'Z');
+                if (!isNaN(d.getTime())) {
+                    return d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+                }
+            } catch (e) {}
+            if (timeStr.length >= 16) return timeStr.substring(11, 16);
+            return timeStr; 
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            socket = io();
+            Chart.defaults.color = '#737373';
+            Chart.defaults.font.family = 'Inter';
+
+            const noDataPlugin = { id: 'noData', afterDraw: (chart) => { if (chart.data.datasets.length === 0 || chart.data.datasets.every(d => !d.data || d.data.length === 0)) { chart.clear(); const ctx = chart.ctx; ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 20px Inter, sans-serif'; ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; ctx.fillText('NINCS ADAT', chart.width / 2, chart.height / 2 - 10); ctx.restore(); } } };
+            const minMaxPlugin = { id: 'minMaxLabels', afterDraw: (chart) => { const config = chart.config.options.plugins.minMaxLabels; if (!config || !config.display) return; const meta = chart.getDatasetMeta(config.datasetIndex || 0); if (!meta || !meta.data || meta.data.length === 0) return; const data = chart.data.datasets[config.datasetIndex || 0].data; if (!data || data.length === 0) return; const ctx = chart.ctx; let minIdx = 0, maxIdx = 0, minVal = data[0], maxVal = data[0]; for(let i=1; i<data.length; i++) { if(data[i] < minVal) { minVal = data[i]; minIdx = i; } if(data[i] > maxVal) { maxVal = data[i]; maxIdx = i; } } const drawBadge = (idx, val, type, color, yOff) => { const el = meta.data[idx]; if (!el || isNaN(el.x) || isNaN(el.y)) return; ctx.save(); ctx.beginPath(); ctx.arc(el.x, el.y, 3, 0, 2*Math.PI); ctx.fillStyle = color; ctx.fill(); const txt = `${type} ${val.toFixed(config.decimals || 0)}`; ctx.font = '600 10px Inter'; const w = ctx.measureText(txt).width + 10, h = 18; let bx = el.x - w/2, by = el.y + yOff - h/2; bx = Math.max(0, Math.min(bx, chart.width - w)); by = Math.max(0, Math.min(by, chart.height - h)); ctx.fillStyle = 'rgba(30, 30, 30, 0.6)'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 4); else ctx.rect(bx, by, w, h); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, bx + w/2, by + h/2 + 1); ctx.restore(); }; drawBadge(maxIdx, maxVal, 'MAX', '#ef4444', -20); drawBadge(minIdx, minVal, 'MIN', '#10b981', 20); } };
+            const crosshairPlugin = { id: 'crosshair', afterDraw: (chart) => { if (chart.tooltip && chart.tooltip._active && chart.tooltip._active.length) { const el = chart.tooltip._active[0].element; if (!el) return; const ctx = chart.ctx; ctx.save(); ctx.beginPath(); ctx.moveTo(el.x, chart.scales.y.top); ctx.lineTo(el.x, chart.scales.y.bottom); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.restore(); } } };
+
+            // --- ÚJ: ÉLŐ PÖTTY PLUGIN ---
+            const liveIndicatorPlugin = { 
+                id: 'liveIndicator', 
+                afterDraw: (chart) => { 
+                    if (!isLiveMode || chart.canvas.id !== 'co2Chart') return; 
+                    const meta = chart.getDatasetMeta(0); 
+                    if (!meta || !meta.data || meta.data.length === 0) return; 
+                    const pt = meta.data[meta.data.length - 1]; 
+                    if (!pt || isNaN(pt.x) || isNaN(pt.y)) return; 
+                    
+                    const rawData = chart.data.datasets[1].data;
+                    const currentPpm = rawData[rawData.length - 1] || chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1];
+                    if (currentPpm === undefined) return;
+
+                    const ctx = chart.ctx; 
+                    ctx.save(); 
+                    
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 10, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; ctx.fill(); 
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 5, 0, 2 * Math.PI); ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke(); 
+                    
+                    let textX = pt.x;
+                    let textY = pt.y - 15;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    
+                    if (pt.x > chart.width - 70) { ctx.textAlign = 'right'; textX = pt.x - 8; }
+                    if (pt.y < 35) { ctx.textBaseline = 'top'; textY = pt.y + 15; }
+
+                    ctx.font = 'bold 12px Inter, sans-serif'; 
+                    ctx.fillStyle = '#ef4444'; 
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)'; 
+                    ctx.shadowBlur = 4; 
+                    ctx.fillText(`🔴 ÉLŐ: ${Math.round(currentPpm)} ppm`, textX, textY); 
+                    ctx.restore(); 
+                } 
+            };
+
+            // Hozzáadtuk a liveIndicatorPlugin-t a regisztrációhoz!
+            Chart.register(noDataPlugin, minMaxPlugin, crosshairPlugin, liveIndicatorPlugin);
+
+            const commonOpts = { 
+                layout: { padding: { top: 25, right: 35, bottom: 5, left: 5 } },
+                responsive: true, maintainAspectRatio: false, animation: { duration: 400, easing: 'easeOutQuart' }, elements: { point: { radius: 0, hoverRadius: 5, hitRadius: 10 } }, scales: { x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)', maxRotation: 0, autoSkipPadding: 15 } }, y: { grid: { color: 'rgba(255,255,255,0.06)', drawBorder: false }, ticks: { color: 'rgba(255,255,255,0.4)', callback: v => Math.round(v) }, grace: '10%' } }, interaction: { mode: 'index', intersect: false }, plugins: { tooltip: { backgroundColor: 'rgba(20, 20, 20, 0.9)', titleColor: 'rgba(255,255,255,0.5)', bodyColor: '#fff', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 10, usePointStyle: true }, legend: { display: false } } 
+            };
+
+            co2Chart = new Chart(document.getElementById('co2Chart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [ { label: 'Trend', data: [], borderColor: '#3b82f6', backgroundColor: ctx => createGradient(ctx, 'rgba(59, 130, 246, 0.25)', 'rgba(59, 130, 246, 0.01)'), borderWidth: 3, tension: 0.3, fill: true, order: 1 }, { label: 'Nyers', data: [], borderColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, tension: 0.3, fill: false, order: 2 } ]}, options: { ...commonOpts, plugins: { ...commonOpts.plugins, minMaxLabels: { display: true, datasetIndex: 1, decimals: 0 } } } });
+            speedChart = new Chart(document.getElementById('speedChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{ label: 'Sebesség', data: [], borderColor: '#f97316', backgroundColor: ctx => createGradient(ctx, 'rgba(249, 115, 22, 0.2)', 'rgba(249, 115, 22, 0.01)'), borderWidth: 2, fill: true, tension: 0.3 }]}, options: { ...commonOpts, plugins: { ...commonOpts.plugins, minMaxLabels: { display: true, datasetIndex: 0, decimals: 1 } } } });
+            accelChart = new Chart(document.getElementById('accelChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{ label: 'Gyorsulás', data: [], borderColor: '#d946ef', backgroundColor: ctx => createGradient(ctx, 'rgba(217, 70, 239, 0.2)', 'rgba(217, 70, 239, 0.01)'), borderWidth: 2, fill: true, tension: 0.3 }]}, options: { ...commonOpts, plugins: { ...commonOpts.plugins, minMaxLabels: { display: true, datasetIndex: 0, decimals: 2 } } } });
+            timeBarChart = new Chart(document.getElementById('timeBarChart').getContext('2d'), { type: 'bar', data: { labels: ['JÓ (<1000)', 'FIGY (<1500)', 'KRIT (>1500)'], datasets: [{ data: [], backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)'], borderRadius: 4, barThickness: 16 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: { duration: 500 }, plugins: { legend: { display: false }, minMaxLabels: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: 'rgba(255,255,255,0.4)' } }, y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } } } } } });
+
+            document.getElementById('history-date').addEventListener('change', function() {
+                const wBox = document.getElementById('no-data-warning'); if (wBox) wBox.style.display = 'none';
+                if (this.value === todayDate) switchToLive(); else loadHistory(this.value);
+            });
+            
+            socket.on('update_data', data => { if (isLiveMode) updateUI(data); });
+
+            if (!isLiveMode) { document.getElementById('history-date').classList.add('active-input'); loadHistory("<%= default_date %>"); }
+            setTimeout(() => { const pl = document.getElementById('preloader'); if(pl) { pl.style.opacity = '0'; setTimeout(() => pl.style.display = 'none', 500); } }, 500);
+        });
+
+        function switchToLive() {
+            isLiveMode = true; 
+            const wBox = document.getElementById('no-data-warning'); if (wBox) wBox.style.display = 'none';
+            document.getElementById('history-date').classList.remove('active-input'); 
+            document.getElementById('section-title').innerText = "Mai aktuális értékek"; 
+            document.getElementById('history-date').value = todayDate;
+            document.getElementById('live-btn').classList.add('active');
+            
+            // Ha visszaváltunk élő nézetre, frissítjük a grafikonokat, hogy újra megjelenjen a pötty
+            if(co2Chart) co2Chart.update();
+        }
+
+        function loadHistory(dateStr) {
+            isLiveMode = false; 
+            document.getElementById('live-btn').classList.remove('active');
+            document.getElementById('history-date').classList.add('active-input'); 
+            document.getElementById('section-title').innerText = "Archívum: " + dateStr; 
+            
+            fetch('/api/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: dateStr }) })
+            .then(res => res.json()).then(data => { 
+                if (data.error || data.empty) { resetKPI(); return; } 
+                updateUI(data); 
+            })
+            .catch(err => { console.error("History fetch error:", err) });
+        }
+
+        function updateUI(data) {
+            if(data.kpi) {
+                const cEl = document.getElementById('current-co2'), cCard = document.getElementById('current-kpi-card');
+                cEl.innerText = data.kpi.current;
+                if (data.air_status_class === 'status-good') { cEl.style.color = 'var(--success)'; cCard.className = 'kpi-card status-good-card'; } 
+                else if (data.air_status_class === 'status-warning') { cEl.style.color = '#f59e0b'; cCard.className = 'kpi-card status-warning-card'; } 
+                else if (data.air_status_class === 'status-danger') { cEl.style.color = 'var(--danger)'; cCard.className = 'kpi-card status-danger-card'; } 
+                else { cEl.style.color = 'var(--text-primary)'; cCard.className = 'kpi-card status-neutral-card'; }
+                document.getElementById('avg-co2').innerText = data.kpi.avg; document.getElementById('max-co2').innerText = data.kpi.max; document.getElementById('min-co2').innerText = data.kpi.min;
+            }
+            const sBox = document.getElementById('status-box'); 
+            if(sBox) { 
+                sBox.innerHTML = `Állapot: <span>${data.air_status_text}</span>`; 
+                sBox.className = 'status-box ' + data.air_status_class; 
+            }
+            
+            if (data.timestamp && data.last_update !== "Archívum") {
+                try {
+                    const d = new Date(data.timestamp.replace(' ', 'T') + 'Z');
+                    document.getElementById('last-update').innerText = isNaN(d.getTime()) ? data.last_update : d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                } catch(e) {
+                    document.getElementById('last-update').innerText = data.last_update;
+                }
+            } else {
+                document.getElementById('last-update').innerText = data.last_update;
+            }
+
+            if (data.chartData && data.chartData.length > 0) {
+                const newLabels = data.chartData.map(d => formatLocalTime(d.x));
+                co2Chart.data.labels = newLabels; co2Chart.data.datasets[0].data = data.chartData.map(d => d.y_smooth); co2Chart.data.datasets[1].data = data.chartData.map(d => d.y_raw); co2Chart.update();
+                speedChart.data.labels = newLabels; speedChart.data.datasets[0].data = data.chartData.map(d => d.speed); speedChart.update();
+                accelChart.data.labels = newLabels; accelChart.data.datasets[0].data = data.chartData.map(d => d.accel); accelChart.update();
+            }
+            if (data.timeStats) { timeBarChart.data.datasets[0].data = data.timeStats; timeBarChart.update(); }
+        }
+
+        function resetKPI() {
+            document.getElementById('current-co2').innerText = "--"; document.getElementById('current-co2').style.color = 'var(--text-primary)';
+            const cCard = document.getElementById('current-kpi-card'); if(cCard) cCard.className = 'kpi-card status-neutral-card';
+            document.getElementById('avg-co2').innerText = "--"; document.getElementById('max-co2').innerText = "--"; document.getElementById('min-co2').innerText = "--";
+            [co2Chart, speedChart, accelChart].forEach(c => { c.data.labels = []; c.data.datasets.forEach(d => d.data = []); c.update(); });
+            timeBarChart.data.datasets[0].data = []; timeBarChart.update();
+        }
+    </script>
+</body>
+</html>

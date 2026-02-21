@@ -31,47 +31,85 @@ function getStatus(val) {
     return { text: "VESZÉLYES", cssClass: config.CLASS_DANGER };
 }
 
+// --- MEMÓRIA CACHE VÁLTOZÓK ---
+let dailyCache = [];
+let lastFetchedId = 0;
+let currentDayStr = "";
+
+// --- AZ OPTIMALIZÁLT LEKÉRDEZÉS ---
 async function getLatestSensorData() {
-    // Lekérjük a MAI NAP összes adatát, limit nélkül
-    const res = await pool.query(
-        `SELECT timestamp as "Ido", co2_ppm as "CO2_ppm" FROM sensor_data WHERE timestamp >= $1 ORDER BY timestamp DESC`, 
-        [dayjs().format('YYYY-MM-DD 00:00:00')]
-    );
-    
-    let rows = res.rows.reverse();
+    const todayStr = dayjs().format('YYYY-MM-DD');
 
-    // OKOS RITKÍTÁS: Ha több mint 1500 adatpontunk van a napban, ritkítjuk őket, 
-    // hogy a böngésző és a grafikon ne fagyjon le, de a teljes nap látszódjon!
-    const MAX_POINTS = 1500;
-    if (rows.length > MAX_POINTS) {
-        const step = Math.ceil(rows.length / MAX_POINTS);
-        // Csak minden "step"-edik elemet tartjuk meg (pl. minden 5-ödiket), PLUSZ a legutolsó friss adatot!
-        let thinnedRows = rows.filter((_, index) => index % step === 0);
-        
-        // Biztosítjuk, hogy a legfrissebb (utolsó) élő adat garantáltan benne legyen a listában
-        if (rows[rows.length - 1] !== thinnedRows[thinnedRows.length - 1]) {
-            thinnedRows.push(rows[rows.length - 1]);
+    try {
+        // 1. Új nap vagy üres cache esetén teljes mai nap betöltése
+        if (currentDayStr !== todayStr || dailyCache.length === 0) {
+            const res = await pool.query(
+                `SELECT id, timestamp as "Ido", co2_ppm as "CO2_ppm" FROM sensor_data WHERE timestamp >= $1 ORDER BY id ASC`, 
+                [`${todayStr} 00:00:00`]
+            );
+            dailyCache = res.rows;
+            currentDayStr = todayStr;
+            if (dailyCache.length > 0) {
+                lastFetchedId = dailyCache[dailyCache.length - 1].id;
+            }
+        } 
+        // 2. Csak az új adatok lekérése ID alapján (ez spórolja az adatforgalmat)
+        else {
+            const res = await pool.query(
+                `SELECT id, timestamp as "Ido", co2_ppm as "CO2_ppm" FROM sensor_data WHERE id > $1 ORDER BY id ASC`, 
+                [lastFetchedId]
+            );
+            if (res.rows.length > 0) {
+                dailyCache = dailyCache.concat(res.rows);
+                lastFetchedId = dailyCache[dailyCache.length - 1].id;
+            }
         }
-        return thinnedRows;
-    }
 
-    return rows;
+        let rows = [...dailyCache];
+
+        // 3. Ritkítás (Throttling) a megjelenítéshez
+        const MAX_POINTS = 1500;
+        if (rows.length > MAX_POINTS) {
+            const step = Math.ceil(rows.length / MAX_POINTS);
+            let thinnedRows = rows.filter((_, index) => index % step === 0);
+            
+            // Biztosítjuk, hogy a legutolsó mérés mindig benne legyen
+            if (rows.length > 0 && rows[rows.length - 1].id !== thinnedRows[thinnedRows.length - 1]?.id) {
+                thinnedRows.push(rows[rows.length - 1]);
+            }
+            return thinnedRows;
+        }
+
+        return rows;
+    } catch (err) {
+        console.error("❌ Hiba az adatok lekérésekor:", err.message);
+        return dailyCache; // Hiba esetén adjuk vissza a már memóriában lévőt
+    }
 }
 
 async function getAvailableDates() {
-    const res = await pool.query(`SELECT DISTINCT DATE(timestamp) as datum FROM sensor_data ORDER BY datum DESC`);
-    return res.rows.map(r => dayjs(r.datum).format('YYYY-MM-DD'));
+    try {
+        const res = await pool.query(`SELECT DISTINCT DATE(timestamp) as datum FROM sensor_data ORDER BY datum DESC`);
+        return res.rows.map(r => dayjs(r.datum).format('YYYY-MM-DD'));
+    } catch (err) {
+        return [];
+    }
 }
 
 async function getHistoryData(dateStr) {
-    const cache = await pool.query("SELECT data_json FROM history_cache WHERE date_key = $1", [dateStr]);
-    if (cache.rows.length > 0) return JSON.parse(cache.rows[0].data_json);
+    try {
+        const cache = await pool.query("SELECT data_json FROM history_cache WHERE date_key = $1", [dateStr]);
+        if (cache.rows.length > 0) return JSON.parse(cache.rows[0].data_json);
 
-    const res = await pool.query(`SELECT timestamp as "Ido", co2_ppm as "CO2_ppm" FROM sensor_data WHERE timestamp >= $1 AND timestamp <= $2 ORDER BY timestamp ASC`, [`${dateStr} 00:00:00`, `${dateStr} 23:59:59`]);
-    if (res.rows.length > 0 && dateStr < dayjs().format('YYYY-MM-DD')) {
-        await pool.query(`INSERT INTO history_cache (date_key, data_json) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [dateStr, JSON.stringify(res.rows)]);
+        const res = await pool.query(`SELECT timestamp as "Ido", co2_ppm as "CO2_ppm" FROM sensor_data WHERE timestamp >= $1 AND timestamp <= $2 ORDER BY timestamp ASC`, [`${dateStr} 00:00:00`, `${dateStr} 23:59:59`]);
+        
+        if (res.rows.length > 0 && dateStr < dayjs().format('YYYY-MM-DD')) {
+            await pool.query(`INSERT INTO history_cache (date_key, data_json) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [dateStr, JSON.stringify(res.rows)]);
+        }
+        return res.rows;
+    } catch (err) {
+        return [];
     }
-    return res.rows;
 }
 
 function loadAndCleanData(filename) {
@@ -126,13 +164,9 @@ function processAdvancedData(dataArray, windowSize = 15) {
 
     let smoothValues = rawValues.slice();
 
-    // SZIGORÚAN CSAK A SAVGOL SZŰRŐ FUT!
     if (rawValues.length > 5 && effectiveWindow > 3) {
         try {
-            // Nem kérünk a modulba épített "pad" funkcióból, mert hibát okozhat a te verziódban
             let sgResult = savitzkyGolay(rawValues, 1, { windowSize: effectiveWindow, polynomial: 2, derivative: 0 });
-            
-            // Saját kezűleg pótoljuk ki a hiányzó kezdő és végértékeket (amit a szűrő levág)
             let padSize = Math.floor(effectiveWindow / 2);
             if (sgResult && sgResult.length < rawValues.length) {
                 smoothValues = [
@@ -144,8 +178,7 @@ function processAdvancedData(dataArray, windowSize = 15) {
                 smoothValues = sgResult;
             }
         } catch (err) {
-            console.error("❌ Savgol szűrő hiba:", err.message);
-            // SZÁNDÉKOSAN NINCS TARTALÉK! Ha elszáll a Savgol, marad a nyers adat átlagolás NÉLKÜL.
+            console.error("❌ Savgol hiba:", err.message);
         }
     }
 
@@ -153,17 +186,16 @@ function processAdvancedData(dataArray, windowSize = 15) {
     let accel = numpyGradient(speed, minutes);
 
     let dt = new Array(minutes.length).fill(1);
-    dt[0] = minutes.length > 1 ? minutes[1] - minutes[0] : 1;
     for (let i = 1; i < minutes.length; i++) {
         dt[i] = minutes[i] - minutes[i-1];
-        if (dt[i] === 0) dt[i] = 1; 
+        if (dt[i] <= 0) dt[i] = 0.01; 
     }
 
     let timeGood = 0, timeWarn = 0, timeBad = 0;
     let chartData = [];
 
     for (let i = 0; i < dataArray.length; i++) {
-        let sVal = smoothValues[i] || rawValues[i]; // Biztonsági csekk, ha undefined lenne
+        let sVal = smoothValues[i] || rawValues[i];
         if (sVal < 1000) timeGood += dt[i];
         else if (sVal < 1500) timeWarn += dt[i];
         else timeBad += dt[i];

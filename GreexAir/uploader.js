@@ -77,4 +77,5 @@ async function uploadData() {
 }
 
 // Program indítása
+
 uploadData();

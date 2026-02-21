@@ -3,7 +3,7 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const { Client } = require('pg');
 
 // --- KONFIGURÁCIÓ (A Te Neon Adatbázisod) ---
-const NEON_DB_URL = "postgresql://neondb_owner:npg_XOSHJid94uCK@ep-delicate-smoke-agrpz918-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require";
+const NEON_DB_URL = process.env.DB_URL;
 
 // Az Arduino portja
 const SERIAL_PORT_NAME = '/dev/ttyUSB0'; 
@@ -77,4 +77,5 @@ async function uploadData() {
 }
 
 // Program indítása
+
 uploadData();

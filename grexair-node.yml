@@ -14,13 +14,13 @@ services:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - DB_URL=${DB_URL}
+      # Fixen beégetve a link az App-nak:
+      - DB_URL=postgresql://neondb_owner:npg_XOSHJid94uCK@ep-delicate-smoke-agrpz918-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require
       - TZ=Europe/Budapest
     ports:
       - "80:5000"
     restart: always
 
-  # EZ AZ ÚJ RÉSZ AZ ARDUINONAK
   greexair-uploader:
     build:
       context: ./GreexAir
@@ -30,9 +30,10 @@ services:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - SERIAL_PORT=/dev/ttyUSB0  # Ide írd, ha esetleg /dev/ttyACM0 lenne!
+      - SERIAL_PORT=/dev/ttyUSB0
+      # Ezt pótoltuk! Fixen beégetve a link az Uploader-nek is:
+      - DB_URL=postgresql://neondb_owner:npg_XOSHJid94uCK@ep-delicate-smoke-agrpz918-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0" # Bekötjük a fizikai USB portot a Dockerbe!
-    # Fontos: Felülírjuk az alapértelmezett indítást, ez csak a feltöltőt futtatja!
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
     command: ["node", "uploader.js"]
     restart: always

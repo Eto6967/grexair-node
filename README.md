@@ -69,7 +69,7 @@ Statisztika és Stílus: public/ könyvtár
 Konténerizáció: docker-compose.yml
 
 <p align="center">
-<b>GrexAir Project - Professzionális IoT Megoldás</b>
+<b>GrexAir Project Professzionális IoT Megoldás</b>
 
 
 <i>Nyílt forráskódú rendszer a biztonságosabb beltéri környezetért.</i>

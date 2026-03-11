@@ -1,0 +1,89 @@
+/* --- KPI KÁRTYÁK (Professional Monitor) --- */
+.kpi-container {
+    display: grid; grid-template-columns: repeat(3, 1fr); 
+    gap: 20px; margin-bottom: 40px;
+}
+
+.kpi-card {
+    background: var(--bg-card);
+    padding: 24px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-subtle);
+    position: relative;
+    display: flex; flex-direction: column-reverse; /* Szám felül */
+    transition: border-color 0.2s;
+}
+
+.kpi-card:hover {
+    border-color: var(--border-highlight);
+}
+
+/* A SZÁM (Mindig fehér/semleges) */
+.kpi-card .value {
+    font-size: 3rem; 
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+    color: var(--text-primary); /* Fehér marad! */
+}
+
+.kpi-card .unit {
+    font-size: 0.9rem; color: var(--text-muted); font-weight: 500; vertical-align: super; margin-left: 4px;
+}
+
+/* CÍM (Meta) */
+.kpi-card h3 {
+    font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* PRIMARY (Átlag) */
+.kpi-card.primary {
+    border-top: 2px solid var(--accent);
+    background: linear-gradient(180deg, var(--accent-dim) 0%, transparent 40%);
+}
+
+/* MIN (Zöld) */
+.kpi-card.min-card {
+    border-top: 2px solid var(--success);
+    background: linear-gradient(180deg, var(--success-dim) 0%, transparent 40%);
+}
+
+/* MAX (Piros) */
+.kpi-card.max-card {
+    border-top: 2px solid var(--danger);
+    background: linear-gradient(180deg, var(--danger-dim) 0%, transparent 40%);
+}
+
+
+/* --- GRAFIKON KONTÉNER --- */
+.chart-wrapper, .upload-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 0; 
+    min-height: 500px;
+    position: relative;
+}
+
+/* --- EGYÉB --- */
+button {
+    background: var(--text-primary); color: var(--bg-body); border: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+}
+button:hover { opacity: 0.9; }
+
+.nav-btn { width: 36px; height: 36px; border: 1px solid var(--border-subtle); border-radius: 6px; background: transparent; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; }
+.nav-btn:hover { color: var(--text-primary); border-color: var(--text-primary); }
+
+#preloader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-body); z-index: 9999; display: flex; justify-content: center; align-items: center; transition: opacity 0.4s; }
+.pulse-logo { width: 40px; opacity: 0.6; animation: breathe 3s infinite; }
+body.dark-mode .pulse-logo { filter: invert(1); }
+@keyframes breathe { 0%, 100% {transform: scale(1); opacity:0.4;} 50% {transform: scale(1.1); opacity:0.8;} }
+
+/* --- RESPONSIVE / MOBILE TÁMOGATÁS --- */
+@media (max-width: 800px) { 
+    .kpi-container { grid-template-columns: 1fr; gap: 15px; margin-bottom: 25px; } 
+    .kpi-card { padding: 16px; }
+    .kpi-card .value { font-size: 2.2rem; }
+    .chart-wrapper, .upload-box { min-height: 350px; }
+}

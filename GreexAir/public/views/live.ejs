@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>GrexAir - Archív Adatok Feltöltése</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .container { max-width: 800px; margin: 50px auto; text-align: center; }
+        .kpi-container { display: flex; gap: 20px; margin-top: 20px; }
+        .kpi-box { padding: 15px; border: 1px solid #ccc; border-radius: 8px; flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Korábbi CSV adatok feltöltése</h1>
+        
+        <% if (error) { %>
+            <p style="color: red; font-weight: bold;"><%= error %></p>
+        <% } %>
+
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required>
+            <button type="submit">Fájl Elemzése</button>
+        </form>
+
+        <br>
+        <a href="/">⬅ Vissza az Élő Monitorhoz</a>
+
+        <% if (payload) { %>
+            <hr>
+            <h2>Elemzés eredménye</h2>
+            <div class="kpi-container">
+                <div class="kpi-box"><h3>Jelenlegi / Utolsó</h3><h2><%= payload.kpi.current %></h2></div>
+                <div class="kpi-box"><h3>Átlag</h3><h2><%= payload.kpi.avg %></h2></div>
+                <div class="kpi-box"><h3>Maximum</h3><h2><%= payload.kpi.max %></h2></div>
+                <div class="kpi-box"><h3>Minimum</h3><h2><%= payload.kpi.min %></h2></div>
+            </div>
+        <% } %>
+    </div>
+</body>
+</html>

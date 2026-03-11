@@ -1,0 +1,124 @@
+/* --- LAYOUT --- */
+/* JAVÍTVA: Safe-area-inset az alsó részen a Safaris takarások ellen */
+body { 
+    margin: 0; 
+    padding-top: 80px; 
+    padding-bottom: calc(40px + env(safe-area-inset-bottom)); 
+    overflow-y: scroll; 
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.hero-section {
+    margin-bottom: 40px; 
+    padding-top: 10px;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+h1 {
+    font-size: 3.5rem; 
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    max-width: 600px;
+    margin: 0;
+    line-height: 1.6;
+}
+
+.section-spacer { height: 60px; }
+
+.section-title {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    display: block;
+    font-weight: 500;
+}
+
+/* --- STICKY NAV --- */
+nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    height: 64px;
+    display: flex; align-items: center; padding: 0 24px;
+    background: rgba(0,0,0,0);
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+nav.scrolled {
+    background: var(--bg-nav);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand-logo { 
+    height: 24px; 
+    filter: invert(1) grayscale(1); 
+    transition: 0.2s; 
+    opacity: 0.8; 
+}
+
+.brand-logo:hover { 
+    filter: invert(1) grayscale(0); 
+    opacity: 1; 
+}
+
+body.light-mode .brand-logo { filter: invert(0) grayscale(1); }
+body.light-mode .brand-logo:hover { filter: invert(0) grayscale(0); }
+.pulse-logo { filter: invert(1); }
+body.light-mode .pulse-logo { filter: none; }
+
+/* --- NAVIGÁCIÓ (A "fülek") --- */
+/* JAVÍTVA: A gap csökkentve, viszont maguk a gombok (nav-link) nagyobb paddingot kaptak az érintéshez! */
+.nav-menu { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.nav-link {
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    position: relative;
+    transition: color 0.2s;
+    padding: 10px 12px; /* Touch target (érintési felület) növelése */
+}
+
+.nav-link:hover, .nav-link.active { color: var(--text-primary); }
+
+.nav-link::after {
+    content: ''; position: absolute; bottom: 4px; left: 50%; width: 0; height: 1px;
+    background: var(--text-primary); transition: width 0.3s ease, left 0.3s ease;
+}
+.nav-link:hover::after, .nav-link.active::after { width: calc(100% - 24px); left: 12px; }
+
+/* --- RESPONSIVE / MOBILE TÁMOGATÁS --- */
+@media (max-width: 768px) {
+    body { padding-top: 60px; }
+    .container { padding: 0 16px; }
+    h1 { font-size: 2.2rem; }
+    .subtitle { font-size: 1rem; }
+    
+    nav { height: 56px; padding: 0 12px; }
+    .brand-logo { height: 18px; }
+    .nav-menu { gap: 4px; }
+    .nav-link { font-size: 0.8rem; padding: 8px 10px; }
+}
+
+@media (max-width: 480px) {
+    h1 { font-size: 1.8rem; }
+    .nav-menu { gap: 2px; }
+    .nav-link { font-size: 0.75rem; padding: 8px; }
+    .nav-btn { width: 30px; height: 30px; font-size: 0.8rem; }
+}

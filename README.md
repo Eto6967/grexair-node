@@ -22,6 +22,10 @@
 
 ## 📸 Screenshot
 
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="GrexAir Dashboard" width="900">
+</p>
+
 > *CO₂ Monitoring dashboard — live data, colour-coded cards, Min/Max reference lines*
 
 ---

@@ -1,4 +1,4 @@
-
+[🇬🇧 English](README.md) · 🇭🇺 Magyar
 <p align="center">
   <img src="GreexAir/public/images/logo.png" alt="GrexAir Logo" width="120" style="border-radius:20px">
 </p>

@@ -1,308 +1,165 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="hu" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GrexAir Monitoring</title>
-    <link rel="icon" type="image/png" href="/static/logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="/static/css/layout.css">
-    <link rel="stylesheet" href="/static/css/components.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-
-    <style>
-        .glass-chart-card { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 15px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
-        .chart-title { color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.7rem; margin: 0 0 10px 0; font-weight: 600; text-align: left; padding-left: 5px; }
-        .chart-subtitle { text-transform: none; font-weight: 400; opacity: 0.5; letter-spacing: normal; }
-        
-        .kpi-card.status-neutral-card { border-top: 2px solid var(--accent); background: linear-gradient(180deg, var(--accent-dim) 0%, transparent 40%); transition: all 0.3s ease; }
-        .kpi-card.status-good-card { border-top: 2px solid var(--success); background: linear-gradient(180deg, var(--success-dim) 0%, transparent 40%); transition: all 0.3s ease; }
-        .kpi-card.status-warning-card { border-top: 2px solid #f59e0b; background: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, transparent 40%); transition: all 0.3s ease; }
-        .kpi-card.status-danger-card { border-top: 2px solid var(--danger); background: linear-gradient(180deg, var(--danger-dim) 0%, transparent 40%); transition: all 0.3s ease; }
-        .toast-warning { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #d97706; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 500; }
-        .controls-container { display: flex; gap: 10px; align-items: center; }
-        .date-input { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 8px 12px; border-radius: 6px; font-family: 'Inter', sans-serif; cursor: pointer; font-size: 0.85rem; }
-        .date-input.active-input { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
-        .date-input option { background: var(--bg-body, #1a1a1a); color: var(--text-primary, #ffffff); }
-        
-        .live-btn { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 0.85rem; transition: all 0.3s ease; }
-        .live-btn .dot { height: 10px; width: 10px; border-radius: 50%; background-color: var(--text-muted); transition: background-color 0.3s; }
-        .live-btn.active { background-color: var(--success-dim); border-color: var(--success); color: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
-        .live-btn.active .dot { background-color: var(--success); animation: pulse 1.5s infinite; }
-        
-        .monitor-container { width: 100%; max-width: 100%; overflow-x: hidden; padding: 0 10px; box-sizing: border-box; }
-        .hero-section { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 20px; }
-        .hero-text-container h1 { margin: 0; line-height: 1.2; font-size: 2rem;}
-        
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .kpi-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 15px 10px; text-align: center; min-width: 0; }
-        .kpi-card.min-card { border-top: 2px solid var(--success); background: linear-gradient(180deg, var(--success-dim) 0%, transparent 40%); }
-        .kpi-card.max-card { border-top: 2px solid var(--danger); background: linear-gradient(180deg, var(--danger-dim) 0%, transparent 40%); }
-        .value-group { display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 2px; }
-        .kpi-value { font-size: clamp(1.5rem, 6vw, 2rem); font-weight: bold; color: var(--text-primary); transition: color 0.3s; }
-        .unit { font-size: 0.8rem; color: var(--text-muted); }
-        .kpi-card h3 { margin: 5px 0 0 0; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); }
-        .status-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: space-between; }
-        .status-box, .last-update-box { font-size: 0.85rem; flex-grow: 1; min-width: 200px; }
-        .status-box { padding: 8px 15px; border-radius: 6px; text-align: center; }
-        .last-update-box { text-align: right; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; }
-        .status-neutral { background-color: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border-subtle); }
-        .status-good { background-color: var(--success-dim); color: var(--success); border: 1px solid var(--success-dim); }
-        .status-warning { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
-        .status-danger { background-color: var(--danger-dim); color: var(--danger); border: 1px solid var(--danger-dim); }
-        
-        .chart-main-h { height: 380px; }
-        .chart-sub-h { height: 220px; }
-        .chart-bar-h { height: 160px; }
-
-        @media (max-width: 768px) { 
-            .hero-section { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 15px; } 
-            .controls-container { width: 100%; justify-content: space-between; } 
-            .date-input { flex: 1; min-width: 130px; }
-            .live-btn { flex: 1; min-width: 130px; justify-content: center; }
-            .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-            .kpi-card { padding: 12px 5px; }
-            .kpi-value { font-size: 1.4rem; }
-            .status-grid { flex-direction: column; gap: 8px; }
-            .last-update-box { justify-content: center; text-align: center; }
-            .chart-main-h { height: 320px; }
-            .chart-sub-h { height: 200px; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+  <title>GrexAir CO2 Monitor</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/grexair.css?v=100">
+  <script src="/static/js/theme.js?v=100"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    /* EXTRA BIZTONSAG: .kpi-val b szin — nincs CSS color rule */
+    .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: clamp(1.7rem,3.5vw,2.1rem); font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
+    .kpi-val b { font-weight: 600; font-size: inherit; }
+    /* Semmilyen color rule nincs .kpi-val b-n */
+  </style>
 </head>
 <body>
-    <div id="preloader"><div class="loader-content"><img src="/static/logo.png" alt="Loading..." class="pulse-logo"></div></div>
+<div id="preloader"><div class="pl-wrap"><img src="/static/logo.png" class="pl-logo" alt="G" onerror="this.style.display='none'"><div class="pl-bar"><div class="pl-bar-fill"></div></div></div></div>
+<div class="aurora"><div class="ao ao1"></div><div class="ao ao2"></div><div class="ao ao3"></div><div class="ao ao4"></div></div>
+<div class="grain"></div>
+<nav class="gx-nav">
+  <a href="/" class="nav-brand">
+    <div class="nav-logo-wrap"><img src="/static/logo.png" alt="G" style="width:100%;height:100%;object-fit:contain" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'color:#fff;font-size:10px;font-weight:800;font-family:monospace',textContent:'CO2'}))"></div>
+    <div><div class="nav-brand-name">GrexAir</div><div class="nav-brand-tagline">CO2 Monitor</div></div>
+  </a>
+  <div class="nav-links">
+    <a href="/" class="nav-link active"><i class="fas fa-chart-line" style="font-size:10px;margin-right:4px"></i>Monitor</a>
+    <a href="/demo" class="nav-link"><i class="fas fa-play-circle" style="font-size:10px;margin-right:4px"></i>Demo</a>
+    <a href="/upload" class="nav-link"><i class="fas fa-upload" style="font-size:10px;margin-right:4px"></i>Feltoltes</a>
+  </div>
+  <div class="nav-right">
+    <button id="live-btn" class="<%= start_live ? 'active' : 'offline-mode' %>"><span class="dot"></span><span id="live-btn-text"><%= start_live ? 'ONLINE' : 'OFFLINE' %></span></button>
+    <span id="sensor-badge" class="<%= start_live ? 'color-green' : 'color-red' %>"><i class="fas fa-microchip" style="font-size:9px"></i><span id="sensor-status-text"><%= start_live ? 'Arduino aktiv' : 'Nincs adat' %></span></span>
+    <button class="notif-btn" id="notif-btn"><i class="fas fa-bell" style="font-size:12px"></i><span class="notif-dot" id="notif-dot"></span></button>
+    <button class="theme-btn" id="theme-toggle"><i class="fas fa-sun" id="theme-icon"></i></button>
+  </div>
+</nav>
+<div class="gx-page">
+<% if (!start_live) { %>
+<div class="toast-warning"><i class="fas fa-info-circle"></i><span>Ma meg nem erkezett meres. Legutolso: <strong><%= default_date %></strong>. <a href="#" id="jump-live" style="color:var(--blue);margin-left:6px">Elo nezethez</a></span></div>
+<% } %>
+<div class="gx-hero gx-a0">
+  <div><h1>CO2 Monitoring</h1><div class="gx-hero-sub"><i class="fas fa-circle" style="color:var(--green);font-size:7px"></i>Elo adatok · Arduino to Neon PostgreSQL · 3s frissites</div></div>
+  <div class="gx-controls">
+    <select id="date-selector" class="gx-select"><% available_dates.forEach(function(date){ %><option value="<%= date %>" <%= date===default_date?'selected':'' %>><%= date %></option><% }); %></select>
+    <button id="history-btn-vis" class="gx-btn primary"><i class="fas fa-calendar-day"></i> Napot betolt</button>
+    <button id="export-btn" class="gx-btn"><i class="fas fa-download"></i> Export</button>
+  </div>
+</div>
 
-    <nav>
-        <div class="brand-wrapper"><a href="/"><img src="/static/logo.png" alt="GrexAir" class="brand-logo" onerror="this.style.display='none'"></a></div>
-        <div class="nav-menu">
-            <a href="/" class="nav-link active">Monitoring</a>
-            <a href="/demo" class="nav-link">Demo</a>
-            <a href="/upload" class="nav-link">Feltöltés</a>
-            <button id="theme-toggle" class="nav-btn"><i class="fas fa-sun"></i></button>
-        </div>
-    </nav>
+<!-- KPI GRID
+     id="kpi-current" a .kpi-val DIV-en van — a JS innerHTML-lel irja at -->
+<div class="gx-kpi-grid gx-a1">
+  <div id="card-current" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label">Jelenlegi</span><div class="kpi-icon" style="background:var(--blue-d)">🌡</div></div>
+    <div class="kpi-val" id="kpi-current"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub">CO2 szint <span id="kpi-trend" class="kpi-trend flat">—</span></div>
+  </div>
+  <div id="card-avg" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label">Atlag</span><div class="kpi-icon" style="background:var(--pur-d)">📊</div></div>
+    <div class="kpi-val" id="kpi-avg"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub">Napi atlag</div>
+  </div>
+  <div id="card-max" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label">Maximum</span><div class="kpi-icon" style="background:var(--red-d)">⬆</div></div>
+    <div class="kpi-val" id="kpi-max"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub">Napi csucs</div>
+  </div>
+  <div id="card-min" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label">Minimum</span><div class="kpi-icon" style="background:var(--green-d)">⬇</div></div>
+    <div class="kpi-val" id="kpi-min"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub">Napi melypont</div>
+  </div>
+  <div id="card-range" class="gx-card kpi-card hoverable" style="border-top:2px solid var(--teal)">
+    <div class="kpi-card-top"><span class="kpi-label">Tartomany</span><div class="kpi-icon" style="background:var(--teal-d)">↕</div></div>
+    <div class="kpi-val" id="kpi-range"><b style="color:#5ac8fa">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub">Max − Min</div>
+  </div>
+</div>
 
-    <div class="container">
-        <div class="monitor-container">
-            <% if (!start_live) { %>
-            <div id="no-data-warning" class="toast-warning">
-                <i class="fas fa-info-circle"></i>
-                <span>Ma még nem érkezett mérés. Automatikusan a legutolsó aktív nap (<strong><%= default_date %></strong>) adatait látod. 
-                <a href="#" onclick="switchToLive(); return false;" style="color: inherit; text-decoration: underline;">Ugrás élő nézetre...</a></span>
-            </div>
-            <% } %>
+<div class="gx-status-row gx-a2">
+  <div id="air-status-box" class="air-status-box status-neutral">Varakozas...</div>
+  <div class="last-update-pill"><i class="fas fa-clock" style="font-size:9px;opacity:.6"></i>Frissitve: <span id="last-update">—</span></div>
+  <div class="last-update-pill" id="count-pill" style="display:none"><i class="fas fa-database" style="font-size:9px;opacity:.6"></i><span id="data-count">—</span> meres</div>
+</div>
 
-            <div class="hero-section">
-                <div class="hero-text-container">
-                    <h1>Monitoring</h1>
-                </div>
-                <div class="controls-container">
-                    <select id="history-date" class="date-input">
-                        <% available_dates.forEach(function(date) { %>
-                            <option value="<%= date %>" <%= date === default_date ? 'selected' : '' %>><%= date %><%= date === today_date ? ' (Ma / Élő)' : '' %></option>
-                        <% }); %>
-                    </select>
-                    <button id="live-btn" class="live-btn <%= start_live ? 'active' : '' %>" onclick="switchToLive()">
-                        <span class="dot"></span> <span>ÉLŐ NÉZET</span>
-                    </button>
-                </div>
-            </div>
-
-            <span class="section-title" id="section-title" style="margin-top:10px;"><%= start_live ? 'Mai aktuális értékek' : 'Archívum: ' + default_date %></span>
-            
-            <div class="kpi-grid">
-                <div id="current-kpi-card" class="kpi-card status-neutral-card"><div class="card-content"><div class="value-group"><span id="current-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Aktuális</h3></div></div>
-                <div class="kpi-card status-neutral-card"><div class="card-content"><div class="value-group"><span id="avg-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Átlag</h3></div></div>
-                <div class="kpi-card min-card"><div class="card-content"><div class="value-group"><span id="min-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Min</h3></div></div>
-                <div class="kpi-card max-card"><div class="card-content"><div class="value-group"><span id="max-co2" class="kpi-value">--</span><span class="unit">ppm</span></div><h3>Max</h3></div></div>
-            </div>
-
-            <div class="status-grid">
-                <div id="status-box" class="status-box status-neutral">Állapot: <span>...</span></div>
-                <div class="last-update-box">Frissítve: <span id="last-update" style="margin-left: 5px;">--:--:--</span></div>
-            </div>
-
-            <div id="graph-container" class="graph-wrapper" style="padding: 10px 0; display: flex; flex-direction: column; gap: 20px; background: transparent; border: none;">
-                <div class="glass-chart-card chart-main-h"><h4 class="chart-title">CO₂ Koncentráció <span class="chart-subtitle">(Trend & Nyers mérés)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="co2Chart"></canvas></div></div>
-                <div class="glass-chart-card chart-sub-h"><h4 class="chart-title">Változás sebessége <span class="chart-subtitle">(ppm/perc)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="speedChart"></canvas></div></div>
-                <div class="glass-chart-card chart-sub-h"><h4 class="chart-title">Folyamat dinamikája <span class="chart-subtitle">(ppm/perc²)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="accelChart"></canvas></div></div>
-                <div class="glass-chart-card chart-bar-h"><h4 class="chart-title">Időbeli eloszlás <span class="chart-subtitle">(perc zónánként)</span></h4><div style="position: relative; height: calc(100% - 25px); width: 100%;"><canvas id="timeBarChart"></canvas></div></div>
-            </div>
-        </div>
+<div class="gx-row cols-31 gx-a3">
+  <div class="gx-card chart-wrap">
+    <div class="chart-header">
+      <div class="chart-title-block"><div class="chart-title-main">CO2 Koncentracio</div><div class="chart-title-sub">Nyers meres · Savitzky-Golay trendvonal</div></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="chart-legend"><div class="leg-item"><div class="leg-dot" style="background:#0a84ff"></div>Trend</div><div class="leg-item"><div class="leg-dot" style="background:rgba(10,132,255,.35)"></div>Nyers</div></div>
+        <div class="chart-opts"><button class="ch-opt active" data-zoom="all">Osszes</button><button class="ch-opt" data-zoom="60">1o</button><button class="ch-opt" data-zoom="30">30p</button><button class="ch-opt" data-zoom="15">15p</button></div>
+      </div>
     </div>
+    <div class="chart-h-xl"><canvas id="co2Chart"></canvas></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div class="gx-card gauge-mini-wrap">
+      <div class="gauge-mini-title">Aktualis szint</div>
+      <div class="gauge-svg-wrap"><svg viewBox="0 0 140 75" width="140" height="75"><path d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/><path id="gauge-fill" d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="#0a84ff" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke 1s,filter 1s"/></svg><div class="gauge-center-val"><div class="gcv-num" id="gauge-val" style="color:#0a84ff">—</div><div class="gcv-unit">ppm</div></div></div>
+      <div class="gauge-ticks-row">
+        <div class="g-tick"><div class="g-tick-dot" style="background:#30d158;box-shadow:0 0 5px #30d158"></div><div class="g-tick-val" style="color:#30d158">400</div><div class="g-tick-lbl">Kivalo</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ffd60a;box-shadow:0 0 5px #ffd60a"></div><div class="g-tick-val" style="color:#ffd60a">800</div><div class="g-tick-lbl">Jo</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ff9f0a;box-shadow:0 0 5px #ff9f0a"></div><div class="g-tick-val" style="color:#ff9f0a">1200</div><div class="g-tick-lbl">Figy</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ff453a;box-shadow:0 0 5px #ff453a"></div><div class="g-tick-val" style="color:#ff453a">1500</div><div class="g-tick-lbl">Krit</div></div>
+      </div>
+    </div>
+    <div class="gx-card stat-side">
+      <div class="stat-side-title">Napi statisztika</div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Csucs ideje</span><span class="stat-row-badge badge-warn" id="stat-peak-badge">—</span></div><div class="stat-row-val" id="stat-peak-time">—</div><div class="stat-row-sub" id="stat-peak-val">—</div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Trend</span><span class="stat-row-badge badge-flat" id="stat-trend-badge">Stabil</span></div><div class="stat-row-val" id="stat-trend">+0</div><div class="stat-row-sub">ppm / utolso 10 pont</div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Meresek</span></div><div class="stat-row-val" id="stat-count">—</div><div class="stat-row-sub">mai nap ossz</div></div>
+    </div>
+  </div>
+</div>
 
-    <script src="/static/js/main.js"></script>
-    <script type="text/javascript">
-        var socket;
-        var isLiveMode = <%= start_live %>;
-        var todayDate = "<%= today_date %>";
-        var co2Chart, speedChart, accelChart, timeBarChart;
+<div class="gx-row cols-3 gx-a4">
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#bf5af2">Valtozasi Sebesseg</div><div class="chart-title-sub">ppm/perc · Min-Max</div></div></div><div class="chart-h-md"><canvas id="speedChart"></canvas></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#ff9f0a">Gyorsulas</div><div class="chart-title-sub">Delta sebesseg · Min-Max</div></div></div><div class="chart-h-md"><canvas id="accelChart"></canvas></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#30d158">Idobeli Eloszlas</div><div class="chart-title-sub">Percek szama kategoriankent</div></div></div><div class="chart-h-md"><canvas id="timeBarChart"></canvas></div></div>
+</div>
 
-        function createGradient(context, colorStart, colorEnd) {
-            const chartArea = context.chart.chartArea;
-            if (!chartArea) return 'rgba(0,0,0,0)'; 
-            const gradient = context.chart.ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-            gradient.addColorStop(0, colorStart);
-            gradient.addColorStop(1, colorEnd);
-            return gradient;
-        }
+<div class="gx-row cols-2 gx-a5">
+  <div class="gx-card quality-bar-wrap">
+    <div class="quality-bar-title">Levegominoseg eloszlas</div>
+    <div class="quality-levels">
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#30d158"></div>Kivalo (&lt;800)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-good" style="width:0%;background:linear-gradient(90deg,#30d158,#0fa02e)"></div></div><div class="ql-pct" id="ql-good-pct" style="color:#30d158">—</div><div class="ql-time" id="ql-good-t">—</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ffd60a"></div>Jo (800-1000)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-ok" style="width:0%;background:linear-gradient(90deg,#ffd60a,#e5b800)"></div></div><div class="ql-pct" id="ql-ok-pct" style="color:#ffd60a">—</div><div class="ql-time" id="ql-ok-t">—</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff9f0a"></div>Figyelem (1k-1.5k)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-warn" style="width:0%;background:linear-gradient(90deg,#ff9f0a,#e08000)"></div></div><div class="ql-pct" id="ql-warn-pct" style="color:#ff9f0a">—</div><div class="ql-time" id="ql-warn-t">—</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff453a"></div>Kritikus (&gt;1500)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-crit" style="width:0%;background:linear-gradient(90deg,#ff453a,#cc1a10)"></div></div><div class="ql-pct" id="ql-crit-pct" style="color:#ff453a">—</div><div class="ql-time" id="ql-crit-t">—</div></div>
+    </div>
+  </div>
+  <div class="gx-card alert-panel">
+    <div class="alert-panel-title">Esemenynaplo <span class="alert-count" id="alert-count">0</span></div>
+    <div id="alert-list"><div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>Nincs aktiv riasztas</div></div>
+  </div>
+</div>
+</div>
 
-        function formatLocalTime(timeStr) {
-            if (!timeStr) return "--:--";
-            try {
-                const d = new Date(timeStr.replace(' ', 'T') + 'Z');
-                if (!isNaN(d.getTime())) {
-                    return d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
-                }
-            } catch (e) {}
-            if (timeStr.length >= 16) return timeStr.substring(11, 16);
-            return timeStr; 
-        }
+<button id="btn-history" style="display:none"></button>
+<button id="btn-live" style="display:none"></button>
 
-        document.addEventListener("DOMContentLoaded", function() {
-            socket = io();
-            Chart.defaults.color = '#737373';
-            Chart.defaults.font.family = 'Inter';
-
-            const noDataPlugin = { id: 'noData', afterDraw: (chart) => { if (chart.data.datasets.length === 0 || chart.data.datasets.every(d => !d.data || d.data.length === 0)) { chart.clear(); const ctx = chart.ctx; ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 20px Inter, sans-serif'; ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; ctx.fillText('NINCS ADAT', chart.width / 2, chart.height / 2 - 10); ctx.restore(); } } };
-            const minMaxPlugin = { id: 'minMaxLabels', afterDraw: (chart) => { const config = chart.config.options.plugins.minMaxLabels; if (!config || !config.display) return; const meta = chart.getDatasetMeta(config.datasetIndex || 0); if (!meta || !meta.data || meta.data.length === 0) return; const data = chart.data.datasets[config.datasetIndex || 0].data; if (!data || data.length === 0) return; const ctx = chart.ctx; let minIdx = 0, maxIdx = 0, minVal = data[0], maxVal = data[0]; for(let i=1; i<data.length; i++) { if(data[i] < minVal) { minVal = data[i]; minIdx = i; } if(data[i] > maxVal) { maxVal = data[i]; maxIdx = i; } } const drawBadge = (idx, val, type, color, yOff) => { const el = meta.data[idx]; if (!el || isNaN(el.x) || isNaN(el.y)) return; ctx.save(); ctx.beginPath(); ctx.arc(el.x, el.y, 3, 0, 2*Math.PI); ctx.fillStyle = color; ctx.fill(); const txt = `${type} ${val.toFixed(config.decimals || 0)}`; ctx.font = '600 10px Inter'; const w = ctx.measureText(txt).width + 10, h = 18; let bx = el.x - w/2, by = el.y + yOff - h/2; bx = Math.max(0, Math.min(bx, chart.width - w)); by = Math.max(0, Math.min(by, chart.height - h)); ctx.fillStyle = 'rgba(30, 30, 30, 0.6)'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 4); else ctx.rect(bx, by, w, h); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, bx + w/2, by + h/2 + 1); ctx.restore(); }; drawBadge(maxIdx, maxVal, 'MAX', '#ef4444', -20); drawBadge(minIdx, minVal, 'MIN', '#10b981', 20); } };
-            const crosshairPlugin = { id: 'crosshair', afterDraw: (chart) => { if (chart.tooltip && chart.tooltip._active && chart.tooltip._active.length) { const el = chart.tooltip._active[0].element; if (!el) return; const ctx = chart.ctx; ctx.save(); ctx.beginPath(); ctx.moveTo(el.x, chart.scales.y.top); ctx.lineTo(el.x, chart.scales.y.bottom); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.restore(); } } };
-
-            // --- ÚJ: ÉLŐ PÖTTY PLUGIN ---
-            const liveIndicatorPlugin = { 
-                id: 'liveIndicator', 
-                afterDraw: (chart) => { 
-                    if (!isLiveMode || chart.canvas.id !== 'co2Chart') return; 
-                    const meta = chart.getDatasetMeta(0); 
-                    if (!meta || !meta.data || meta.data.length === 0) return; 
-                    const pt = meta.data[meta.data.length - 1]; 
-                    if (!pt || isNaN(pt.x) || isNaN(pt.y)) return; 
-                    
-                    const rawData = chart.data.datasets[1].data;
-                    const currentPpm = rawData[rawData.length - 1] || chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1];
-                    if (currentPpm === undefined) return;
-
-                    const ctx = chart.ctx; 
-                    ctx.save(); 
-                    
-                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 10, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; ctx.fill(); 
-                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 5, 0, 2 * Math.PI); ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke(); 
-                    
-                    let textX = pt.x;
-                    let textY = pt.y - 15;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'bottom';
-                    
-                    if (pt.x > chart.width - 70) { ctx.textAlign = 'right'; textX = pt.x - 8; }
-                    if (pt.y < 35) { ctx.textBaseline = 'top'; textY = pt.y + 15; }
-
-                    ctx.font = 'bold 12px Inter, sans-serif'; 
-                    ctx.fillStyle = '#ef4444'; 
-                    ctx.shadowColor = 'rgba(0,0,0,0.8)'; 
-                    ctx.shadowBlur = 4; 
-                    ctx.fillText(`🔴 ÉLŐ: ${Math.round(currentPpm)} ppm`, textX, textY); 
-                    ctx.restore(); 
-                } 
-            };
-
-            // Hozzáadtuk a liveIndicatorPlugin-t a regisztrációhoz!
-            Chart.register(noDataPlugin, minMaxPlugin, crosshairPlugin, liveIndicatorPlugin);
-
-            const commonOpts = { 
-                layout: { padding: { top: 25, right: 35, bottom: 5, left: 5 } },
-                responsive: true, maintainAspectRatio: false, animation: { duration: 400, easing: 'easeOutQuart' }, elements: { point: { radius: 0, hoverRadius: 5, hitRadius: 10 } }, scales: { x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)', maxRotation: 0, autoSkipPadding: 15 } }, y: { grid: { color: 'rgba(255,255,255,0.06)', drawBorder: false }, ticks: { color: 'rgba(255,255,255,0.4)', callback: v => Math.round(v) }, grace: '10%' } }, interaction: { mode: 'index', intersect: false }, plugins: { tooltip: { backgroundColor: 'rgba(20, 20, 20, 0.9)', titleColor: 'rgba(255,255,255,0.5)', bodyColor: '#fff', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 10, usePointStyle: true }, legend: { display: false } } 
-            };
-
-            co2Chart = new Chart(document.getElementById('co2Chart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [ { label: 'Trend', data: [], borderColor: '#3b82f6', backgroundColor: ctx => createGradient(ctx, 'rgba(59, 130, 246, 0.25)', 'rgba(59, 130, 246, 0.01)'), borderWidth: 3, tension: 0.3, fill: true, order: 1 }, { label: 'Nyers', data: [], borderColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, tension: 0.3, fill: false, order: 2 } ]}, options: { ...commonOpts, plugins: { ...commonOpts.plugins, minMaxLabels: { display: true, datasetIndex: 1, decimals: 0 } } } });
-            speedChart = new Chart(document.getElementById('speedChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{ label: 'Sebesség', data: [], borderColor: '#f97316', backgroundColor: ctx => createGradient(ctx, 'rgba(249, 115, 22, 0.2)', 'rgba(249, 115, 22, 0.01)'), borderWidth: 2, fill: true, tension: 0.3 }]}, options: { ...commonOpts, plugins: { ...commonOpts.plugins, minMaxLabels: { display: true, datasetIndex: 0, decimals: 1 } } } });
-            accelChart = new Chart(document.getElementById('accelChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{ label: 'Gyorsulás', data: [], borderColor: '#d946ef', backgroundColor: ctx => createGradient(ctx, 'rgba(217, 70, 239, 0.2)', 'rgba(217, 70, 239, 0.01)'), borderWidth: 2, fill: true, tension: 0.3 }]}, options: { ...commonOpts, plugins: { ...commonOpts.plugins, minMaxLabels: { display: true, datasetIndex: 0, decimals: 2 } } } });
-            timeBarChart = new Chart(document.getElementById('timeBarChart').getContext('2d'), { type: 'bar', data: { labels: ['JÓ (<1000)', 'FIGY (<1500)', 'KRIT (>1500)'], datasets: [{ data: [], backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)'], borderRadius: 4, barThickness: 16 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: { duration: 500 }, plugins: { legend: { display: false }, minMaxLabels: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: 'rgba(255,255,255,0.4)' } }, y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } } } } } });
-
-            document.getElementById('history-date').addEventListener('change', function() {
-                const wBox = document.getElementById('no-data-warning'); if (wBox) wBox.style.display = 'none';
-                if (this.value === todayDate) switchToLive(); else loadHistory(this.value);
-            });
-            
-            socket.on('update_data', data => { if (isLiveMode) updateUI(data); });
-
-            if (!isLiveMode) { document.getElementById('history-date').classList.add('active-input'); loadHistory("<%= default_date %>"); }
-            setTimeout(() => { const pl = document.getElementById('preloader'); if(pl) { pl.style.opacity = '0'; setTimeout(() => pl.style.display = 'none', 500); } }, 500);
-        });
-
-        function switchToLive() {
-            isLiveMode = true; 
-            const wBox = document.getElementById('no-data-warning'); if (wBox) wBox.style.display = 'none';
-            document.getElementById('history-date').classList.remove('active-input'); 
-            document.getElementById('section-title').innerText = "Mai aktuális értékek"; 
-            document.getElementById('history-date').value = todayDate;
-            document.getElementById('live-btn').classList.add('active');
-            
-            // Ha visszaváltunk élő nézetre, frissítjük a grafikonokat, hogy újra megjelenjen a pötty
-            if(co2Chart) co2Chart.update();
-        }
-
-        function loadHistory(dateStr) {
-            isLiveMode = false; 
-            document.getElementById('live-btn').classList.remove('active');
-            document.getElementById('history-date').classList.add('active-input'); 
-            document.getElementById('section-title').innerText = "Archívum: " + dateStr; 
-            
-            fetch('/api/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: dateStr }) })
-            .then(res => res.json()).then(data => { 
-                if (data.error || data.empty) { resetKPI(); return; } 
-                updateUI(data); 
-            })
-            .catch(err => { console.error("History fetch error:", err) });
-        }
-
-        function updateUI(data) {
-            if(data.kpi) {
-                const cEl = document.getElementById('current-co2'), cCard = document.getElementById('current-kpi-card');
-                cEl.innerText = data.kpi.current;
-                if (data.air_status_class === 'status-good') { cEl.style.color = 'var(--success)'; cCard.className = 'kpi-card status-good-card'; } 
-                else if (data.air_status_class === 'status-warning') { cEl.style.color = '#f59e0b'; cCard.className = 'kpi-card status-warning-card'; } 
-                else if (data.air_status_class === 'status-danger') { cEl.style.color = 'var(--danger)'; cCard.className = 'kpi-card status-danger-card'; } 
-                else { cEl.style.color = 'var(--text-primary)'; cCard.className = 'kpi-card status-neutral-card'; }
-                document.getElementById('avg-co2').innerText = data.kpi.avg; document.getElementById('max-co2').innerText = data.kpi.max; document.getElementById('min-co2').innerText = data.kpi.min;
-            }
-            const sBox = document.getElementById('status-box'); 
-            if(sBox) { 
-                sBox.innerHTML = `Állapot: <span>${data.air_status_text}</span>`; 
-                sBox.className = 'status-box ' + data.air_status_class; 
-            }
-            
-            if (data.timestamp && data.last_update !== "Archívum") {
-                try {
-                    const d = new Date(data.timestamp.replace(' ', 'T') + 'Z');
-                    document.getElementById('last-update').innerText = isNaN(d.getTime()) ? data.last_update : d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                } catch(e) {
-                    document.getElementById('last-update').innerText = data.last_update;
-                }
-            } else {
-                document.getElementById('last-update').innerText = data.last_update;
-            }
-
-            if (data.chartData && data.chartData.length > 0) {
-                const newLabels = data.chartData.map(d => formatLocalTime(d.x));
-                co2Chart.data.labels = newLabels; co2Chart.data.datasets[0].data = data.chartData.map(d => d.y_smooth); co2Chart.data.datasets[1].data = data.chartData.map(d => d.y_raw); co2Chart.update();
-                speedChart.data.labels = newLabels; speedChart.data.datasets[0].data = data.chartData.map(d => d.speed); speedChart.update();
-                accelChart.data.labels = newLabels; accelChart.data.datasets[0].data = data.chartData.map(d => d.accel); accelChart.update();
-            }
-            if (data.timeStats) { timeBarChart.data.datasets[0].data = data.timeStats; timeBarChart.update(); }
-        }
-
-        function resetKPI() {
-            document.getElementById('current-co2').innerText = "--"; document.getElementById('current-co2').style.color = 'var(--text-primary)';
-            const cCard = document.getElementById('current-kpi-card'); if(cCard) cCard.className = 'kpi-card status-neutral-card';
-            document.getElementById('avg-co2').innerText = "--"; document.getElementById('max-co2').innerText = "--"; document.getElementById('min-co2').innerText = "--";
-            [co2Chart, speedChart, accelChart].forEach(c => { c.data.labels = []; c.data.datasets.forEach(d => d.data = []); c.update(); });
-            timeBarChart.data.datasets[0].data = []; timeBarChart.update();
-        }
-    </script>
+<script src="/static/js/monitor.js?v=100"></script>
+<script>
+document.getElementById('history-btn-vis').onclick=()=>document.getElementById('btn-history').click();
+document.getElementById('live-btn').onclick=()=>document.getElementById('btn-live').click();
+var jl=document.getElementById('jump-live');if(jl)jl.onclick=e=>{e.preventDefault();document.getElementById('btn-live').click();};
+var _L=[],_S=[],_R=[];
+document.querySelectorAll('[data-zoom]').forEach(b=>b.onclick=function(){document.querySelectorAll('[data-zoom]').forEach(x=>x.classList.remove('active'));this.classList.add('active');var z=this.dataset.zoom;if(!window.co2Chart)return;if(z==='all'){if(_L.length){window.co2Chart.data.labels=_L.slice();window.co2Chart.data.datasets[0].data=_S.slice();window.co2Chart.data.datasets[1].data=_R.slice();window.co2Chart.update('none');}return;}var n=-parseInt(z);if(!_L.length)return;window.co2Chart.data.labels=_L.slice(n);window.co2Chart.data.datasets[0].data=_S.slice(n);window.co2Chart.data.datasets[1].data=_R.slice(n);window.co2Chart.update('none');});
+window.addEventListener('load',function(){setTimeout(function(){if(typeof window.updateUI!=='function')return;var orig=window.updateUI;window.updateUI=function(p){orig(p);afterUpdate(p);};window.GX_CHARTS=[window.co2Chart,window.speedChart,window.accelChart,window.timeBarChart].filter(Boolean);},300);});
+var _lastPpm=null,_alerts=[];
+function afterUpdate(p){if(!p)return;var cur=parseInt(p.kpi&&p.kpi.current);if(window.co2Chart&&window.co2Chart.data.labels.length){_L=window.co2Chart.data.labels.slice();_S=window.co2Chart.data.datasets[0].data.slice();_R=window.co2Chart.data.datasets[1].data.slice();}if(p.chartData&&p.chartData.length>=2){var last=p.chartData[p.chartData.length-1],prev=p.chartData[Math.max(0,p.chartData.length-10)];var diff=Math.round((last.y_smooth||last.y_raw)-(prev.y_smooth||prev.y_raw));var tb=document.getElementById('kpi-trend');if(tb){tb.textContent=(diff>0?'+':'')+diff+' ppm';tb.className='kpi-trend '+(diff>20?'up':diff<-20?'down':'flat');}var st=document.getElementById('stat-trend'),sb=document.getElementById('stat-trend-badge');if(st)st.textContent=(diff>0?'+':'')+diff;if(sb){sb.textContent=diff>20?'Emelkedo':diff<-20?'Csokkeno':'Stabil';sb.className='stat-row-badge '+(diff>20?'badge-up':diff<-20?'badge-down':'badge-flat');}}var cnt=p.chartData?p.chartData.length:0;var sc=document.getElementById('stat-count');if(sc)sc.textContent=cnt.toLocaleString('hu-HU');var dc=document.getElementById('data-count');if(dc)dc.textContent=cnt.toLocaleString('hu-HU');var cp=document.getElementById('count-pill');if(cp)cp.style.display=cnt?'flex':'none';if(p.timeStats){var ts=p.timeStats,tot=(ts[0]||0)+(ts[1]||0)+(ts[2]||0);setQL('good',ts[0]||0,tot);setQL('ok',0,tot);setQL('warn',ts[1]||0,tot);setQL('crit',ts[2]||0,tot);}if(p.chartData&&p.kpi.max&&window.co2Chart){for(var i=p.chartData.length-1;i>=0;i--){if(Math.round(p.chartData[i].y_raw)==p.kpi.max||Math.round(p.chartData[i].y_smooth)==p.kpi.max){var lbl=window.co2Chart.data.labels[i];var pt=document.getElementById('stat-peak-time'),pv=document.getElementById('stat-peak-val'),pb=document.getElementById('stat-peak-badge');if(pt&&lbl)pt.textContent=lbl;if(pv)pv.textContent=p.kpi.max+' ppm';if(pb){pb.className='stat-row-badge '+(p.kpi.max>1500?'badge-up':p.kpi.max>1000?'badge-warn':'badge-flat');pb.textContent=p.kpi.max>1500?'Kritikus':p.kpi.max>1000?'Figyelem':'Normal';}break;}}}addAlert(cur);}
+function setQL(k,v,tot){var pct=tot>0?Math.round(v/tot*100):0;var f=document.getElementById('ql-'+k);if(f)f.style.width=pct+'%';var pp=document.getElementById('ql-'+k+'-pct');if(pp)pp.textContent=pct+'%';var tt=document.getElementById('ql-'+k+'-t');if(tt)tt.textContent=Math.round(v*3/60)+'p';}
+var _thr=[1500,1200,1000,800];function addAlert(ppm){if(isNaN(ppm)||ppm===_lastPpm)return;var prev=_lastPpm;_lastPpm=ppm;if(prev===null)return;_thr.forEach(function(t){if((prev<t)!==(ppm<t)){var now=new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});var type=t>=1500?'danger':t>=1000?'warn':t>=800?'info':'good';_alerts.unshift({type:type,msg:(ppm>=t?'+'+t+' ppm kuszob atlepve':'-'+t+' ppm ala csokkent'),time:now,ppm:ppm});if(_alerts.length>8)_alerts.pop();}});renderAlerts();}
+function renderAlerts(){var list=document.getElementById('alert-list'),cnt=document.getElementById('alert-count'),dot=document.getElementById('notif-dot');if(!list)return;var d=_alerts.filter(function(a){return a.type==='danger'||a.type==='warn';}).length;if(cnt)cnt.textContent=d;if(dot)dot.classList.toggle('show',d>0);if(!_alerts.length){list.innerHTML='<div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>Nincs aktiv riasztas</div>';return;}list.innerHTML=_alerts.map(function(a){return'<div class="alert-item '+a.type+'"><div class="alert-icon">'+(a.type==='danger'?'!':a.type==='warn'?'?':'OK')+'</div><div class="alert-body"><div class="alert-title">'+a.msg+'</div><div class="alert-desc">'+a.ppm+' ppm</div></div><div class="alert-time">'+a.time+'</div></div>';}).join('');}
+document.getElementById('notif-btn').onclick=function(){var p=document.querySelector('.alert-panel');if(p)p.scrollIntoView({behavior:'smooth',block:'start'});};
+document.getElementById('export-btn').onclick=function(){if(!window.co2Chart||!window.co2Chart.data.labels.length){alert('Nincs exportalhato adat!');return;}var L=window.co2Chart.data.labels,S=window.co2Chart.data.datasets[0].data,R=window.co2Chart.data.datasets[1].data;var SP=window.speedChart?window.speedChart.data.datasets[0].data:[];var rows=['Ido,CO2_nyers,CO2_savgol,Sebesseg'];L.forEach(function(l,i){rows.push([l,R[i]||'',S[i]||'',SP[i]||''].join(','));});var b=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});var u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='grexair_'+(document.getElementById('date-selector').value||'export')+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);};
+</script>
 </body>
 </html>

@@ -1,0 +1,69 @@
+╔══════════════════════════════════════════════════════════╗
+║  GrexAir v4 — Telepítési útmutató                        ║
+╚══════════════════════════════════════════════════════════╝
+
+ELŐFELTÉTELEK:
+  - Node.js 18+ telepítve
+  - Neon PostgreSQL adatbázis URL
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LÉPÉS 1 — .env fájl létrehozása
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Másold le a .env.example fájlt .env névvel:
+  
+    copy .env.example .env       (Windows)
+    cp .env.example .env         (Linux/Mac)
+  
+  Majd nyisd meg a .env fájlt és írd be a Neon DB URL-t:
+  
+    DB_URL=postgresql://user:pass@host/db?sslmode=require
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LÉPÉS 2 — Csomagok telepítése
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  npm install
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LÉPÉS 3 — Szerver indítása
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  node server.js
+
+  Megnyitás: http://localhost:5000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPCIONÁLIS — Logo csere
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Másold a saját logódat ide:
+    public/logo.png
+  
+  Ha nincs logo.png, a nav automatikusan CO₂ szöveget mutat.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPCIONÁLIS — Demo CSV
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Ha van SENSOR.CSV fájlod, másold a projekt gyökérbe.
+  Elérhető: http://localhost:5000/demo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ÚJ FUNKCIÓK v4-ben:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ Gauge - valódi aktuális PPM érték mutatja
+  ✅ Min/Max jelölők MINDEN grafikonon (piros/zöld)
+  ✅ Kártyák színezve CO2 szint szerint
+  ✅ Kártyák számai az adott szint színével
+  ✅ Veszélyességi szint badge (KIVÁLÓ/JÓ/ELFOGADHATÓ/VESZÉLYES)
+  ✅ ONLINE/OFFLINE jelző (5 perces timeout)
+  ✅ Grafikonok: nincs kocka/rácsozat a háttérben
+  ✅ Logo: lekerekített, a képed jelenik meg
+  ✅ CSV Export gomb
+  ✅ Zoom gombok (összes/1ó/30p/15p)
+  ✅ Riasztás napló (küszöbátlépésnél)
+  ✅ Levegőminőség eloszlás sávok
+  ✅ Teljes mobil reszponzív design
+  ✅ Sötét/Világos téma váltás

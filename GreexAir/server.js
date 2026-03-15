@@ -1,15 +1,16 @@
+require('dotenv').config();
 const express = require('express');
-const http = require('http');
+const http    = require('http');
 const { Server } = require('socket.io');
-const multer = require('multer');
-const dayjs = require('dayjs');
-const fs = require('fs');
+const multer  = require('multer');
+const dayjs   = require('dayjs');
+const fs      = require('fs');
 const dataManager = require('./dataManager');
-const config = require('./config');
+const config  = require('./config');
 
-const app = express();
+const app    = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io     = new Server(server);
 
 app.set('view engine', 'ejs');
 app.use('/static', express.static('public'));
@@ -17,31 +18,28 @@ app.use(express.json());
 
 function prepPayload(data, isLive = true) {
     if (!data || data.length === 0) return null;
-    
     try {
-        const kpi = dataManager.calculateKpi(data);
+        const kpi    = dataManager.calculateKpi(data);
         const status = dataManager.getStatus(kpi.current);
         const lastDataObj = data[data.length - 1];
-        const lastTime = dayjs(lastDataObj.Ido);
-        
-        const advanced = dataManager.processAdvancedData(data);
-        
-        // TELJESEN KIVÉVE AZ ONLINE/OFFLINE LOGIKA! Csak a nyers adatokat küldjük.
+        const lastTime    = dayjs(lastDataObj.Ido);
+        const advanced    = dataManager.processAdvancedData(data);
         return {
-            kpi, 
-            air_status_text: status.text, 
+            kpi,
+            air_status_text:  status.text,
             air_status_class: status.cssClass,
-            chartData: advanced.chartData,
-            timeStats: advanced.timeStats,
-            last_update: isLive ? lastTime.format("HH:mm:ss") : "Archívum", 
-            timestamp: lastTime.format('YYYY-MM-DD HH:mm:ss')
+            chartData:  advanced.chartData,
+            timeStats:  advanced.timeStats,
+            last_update: isLive ? lastTime.format('HH:mm:ss') : 'Archívum',
+            timestamp:   lastTime.format('YYYY-MM-DD HH:mm:ss')
         };
     } catch (err) {
-        console.error("❌ Hiba a prepPayload feldolgozásakor:", err);
+        console.error('❌ Hiba a prepPayload feldolgozásakor:', err);
         return null;
     }
 }
 
+// Live broadcast every 3 seconds
 setInterval(async () => {
     try {
         const data = await dataManager.getLatestSensorData();
@@ -50,7 +48,7 @@ setInterval(async () => {
             if (payload) io.emit('update_data', payload);
         }
     } catch (err) {
-        console.error("❌ Hiba az élő adat lekérdezésekor:", err.message);
+        console.error('❌ Hiba az élő adat lekérdezésekor:', err.message);
     }
 }, 3000);
 
@@ -58,22 +56,14 @@ app.get('/', async (req, res) => {
     try {
         const todayStr = dayjs().format('YYYY-MM-DD');
         const availableDates = await dataManager.getAvailableDates();
-        
-        const hasTodayData = availableDates.includes(todayStr);
+        const hasTodayData   = availableDates.includes(todayStr);
         let dates = [...availableDates];
-        
         if (!hasTodayData) dates.unshift(todayStr);
         const defaultDate = hasTodayData ? todayStr : (dates.length > 1 ? dates[1] : todayStr);
-
-        res.render('monitor', { 
-            today_date: todayStr, 
-            available_dates: dates, 
-            default_date: defaultDate, 
-            start_live: hasTodayData 
-        });
+        res.render('monitor', { today_date: todayStr, available_dates: dates, default_date: defaultDate, start_live: hasTodayData });
     } catch (err) {
-        console.error("❌ Hiba a főoldal renderelésekor:", err.message);
-        res.send("Hiba történt a főoldal betöltésekor.");
+        console.error('❌ Hiba a főoldal renderelésekor:', err.message);
+        res.send('Hiba történt a főoldal betöltésekor.');
     }
 });
 
@@ -85,59 +75,47 @@ app.get('/upload', (req, res) => res.render('live', { error: null, payload: null
 app.post('/upload', multer({ dest: 'uploads/' }).single('file'), async (req, res) => {
     let payload = null, error = null;
     if (req.file) {
-        try { 
-            payload = prepPayload(await dataManager.loadAndCleanData(req.file.path), false); 
-            fs.unlinkSync(req.file.path); 
-        }
-        catch (e) { error = e.message; }
+        try {
+            payload = prepPayload(await dataManager.loadAndCleanData(req.file.path), false);
+            fs.unlinkSync(req.file.path);
+        } catch (e) { error = e.message; }
     }
     res.render('live', { payload, error });
 });
 
 app.post('/api/history', async (req, res) => {
-    const targetDate = req.body.date;
     try {
-        const rawData = await dataManager.getHistoryData(targetDate);
+        const rawData = await dataManager.getHistoryData(req.body.date);
         const payload = prepPayload(rawData, false);
-        if (payload) {
-            res.json(payload);
-        } else {
-            res.json({ error: 'Nincs adat ezen a napon.' });
-        }
+        res.json(payload || { error: 'Nincs adat ezen a napon.' });
     } catch (err) {
-        res.json({ error: 'Szerver hiba az adat lekérésekor.' });
+        res.json({ error: 'Szerver hiba.' });
     }
 });
 
-// ==========================================
-// ÚJ VÉGPONT: KIZÁRÓLAG AZ ESP32 SZÁMÁRA
-// ==========================================
 app.get('/api/esp32', async (req, res) => {
     try {
-        const data = await dataManager.getLatestSensorData();
+        const data    = await dataManager.getLatestSensorData();
         const payload = prepPayload(data, true);
-        
-        if (payload && payload.kpi && payload.kpi.current !== undefined) {
-            // Csak egy pici JSON-t küldünk vissza a számmal
+        if (payload?.kpi?.current !== undefined) {
             res.json({ current_co2: payload.kpi.current });
         } else {
             res.status(404).json({ error: 'Nincs érvényes adat' });
         }
     } catch (err) {
-        console.error("❌ Hiba az ESP32 adat lekérdezésekor:", err.message);
         res.status(500).json({ error: 'Szerver hiba' });
     }
 });
-// ==========================================
 
 io.on('connection', async (socket) => {
     try {
-        const data = await dataManager.getLatestSensorData();
+        const data    = await dataManager.getLatestSensorData();
         const payload = prepPayload(data, true);
         if (payload) socket.emit('update_data', payload);
     } catch (err) {
-        console.error("❌ Hiba a kliens csatlakozásakor:", err.message);
+        console.error('❌ Hiba a kliens csatlakozásakor:', err.message);
     }
 });
 
-server.listen(5000, () => console.log('🚀 Szerver: http://localhost:5000'));
+const PORT = config.PORT || 5000;
+server.listen(PORT, () => console.log(`🚀 GrexAir szerver: http://localhost:${PORT}`));

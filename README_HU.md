@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="public/logo.png" alt="GrexAir Logo" width="120" style="border-radius:20px">
+  <img src="GreexAir/public/images/logo.png" alt="GrexAir Logo" width="120" style="border-radius:20px">
 </p>
 
 <h1 align="center">GrexAir</h1>

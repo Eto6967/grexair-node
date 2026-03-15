@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.0.0-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white">
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white">
@@ -183,6 +183,6 @@ An ESP32 display can poll the current value from the `/api/esp32` endpoint:
 ---
 
 <p align="center">
-  <b>GrexAir v4.0 • Open-source IoT project</b><br>
+  <b>GrexAir v2.0 • Open-source IoT project</b><br>
   <i>For healthier indoor air 🌱</i>
 </p>

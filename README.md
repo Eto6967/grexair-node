@@ -1,79 +1,184 @@
-
+🇬🇧 [English](README.md) · 🇭🇺 [Magyar](README_HU.md)
 <p align="center">
-  <img src="GreexAir/public/images/logo.png" alt="GrexAir Logo" width="220">
+  <img src="public/logo.png" alt="GrexAir Logo" width="120" style="border-radius:20px">
 </p>
 
-<h1 align="center">GrexAir IoT System</h1>
+<h1 align="center">GrexAir</h1>
 
 <p align="center">
-  <b>Intelligens levegőminőség-felügyeleti és beavatkozó ökoszisztéma zárt területekhez.</b><br>
-  <i>Automatizált CO₂ monitorozás, prediktív adatanalízis és környezeti szabályozás.</i>
+  <b>Intelligent CO₂ monitoring system for enclosed spaces.</b><br>
+  <i>Real-time monitoring · Predictive analytics · Arduino integration</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge" alt="Version">
-  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" alt="NodeJS">
-  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="Postgres">
-  <img src="https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white" alt="ChartJS">
+  <img src="https://img.shields.io/badge/Version-4.0.0-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white">
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white">
+  <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white">
+  <img src="https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white">
 </p>
 
 ---
 
-## 📖 Áttekintés
+## 📸 Screenshot
 
-A **GrexAir** egy olyan IoT megoldás, amely zárt területek levegőminőségének (elsődlegesen CO₂ koncentrációjának) folyamatos felügyeletére és aktív szabályozására szolgál. A rendszer ötvözi a valós idejű adatgyűjtést a fejlett szoftveres analitikával, hogy kritikus értékek esetén automatizált fizikai beavatkozással biztosítsa a megfelelő légcserét.
+> *CO₂ Monitoring dashboard — live data, colour-coded cards, Min/Max reference lines*
 
-## ✨ Kiemelt Funkciók
+---
 
-- 📈 **Dinamikus Vizualizáció:** Chart.js alapú, valós idejű grafikonok dinamikus Y-tengely skálázással és interaktív időtáv-szűréssel (15p, 30p, 1ó, Összes).
-- 🧠 **Prediktív Analitika:** Savitzky-Golay szűrőalkalmazás a zajmentes mérésekhez, valamint a gázkoncentráció változási sebességének és gyorsulásának kiszámításához.
-- 🟢 **Okos Státuszfigyelés:** Időzóna-független, intelligens Online/Offline detektálás, amely azonnal jelzi a szenzor adatfolyamának megszakadását.
-- 🔌 **Hardver Integráció:** Közvetlen USB soros port (Serial) kommunikáció az adatgyűjtő hardverekkel (Arduino/ESP), dedikált uploader szolgáltatáson keresztül.
-- 🛡️ **Erőforrás-optimalizálás:** Többszintű gyorsítótárazás (caching), Socket.io alapú eseményvezérelt frissítés és visszamenőleges archívum (naptár funkció).
+## 📖 Overview
 
-## 🛠️ Technológiai Stack
+**GrexAir** is an IoT solution for continuous air quality monitoring in enclosed spaces such as offices, classrooms and warehouses. Sensor data collected by an Arduino is processed by a Node.js server and displayed in real time on a modern glassmorphism-style web dashboard.
 
-| Réteg | Megvalósítás |
+---
+
+## ✨ Features
+
+| Feature | Description |
 | :--- | :--- |
-| **Backend** | Node.js (Express.js) & Socket.io |
-| **Frontend** | EJS, Vanilla JS, Chart.js, egyedi CSS |
-| **Adatbázis** | PostgreSQL (Neon.tech Cloud) |
-| **Algoritmusok** | Savitzky-Golay zajszűrés (`ml-savitzky-golay`) |
-| **Infrastruktúra** | Docker & Docker Compose (Kettős konténer: App + Uploader) |
+| 📊 **Real-time dashboard** | Socket.io-powered updates every 3 seconds |
+| 🎨 **Dynamic card colours** | Numbers and card backgrounds change colour based on CO₂ level (green → yellow → orange → red) |
+| 📈 **Min/Max markers** | Dashed red/green horizontal reference lines on every chart |
+| 🧠 **Savitzky-Golay filter** | Noise-free trend line displayed alongside raw measurements |
+| ⚡ **Rate of change & acceleration** | Analysis of CO₂ change dynamics |
+| 🟢 **Online/Offline indicator** | Automatically switches to OFFLINE after a 5-minute data timeout |
+| 📅 **Archive browser** | Look up historical data from any previous day via a date picker |
+| 📤 **CSV export** | Download all data with a single click |
+| 🌙 **Dark / Light theme** | Toggleable theme saved to localStorage |
+| 📱 **Responsive design** | Optimised layout for mobile and tablet |
 
-## ⚙️ Telepítés és Futtatás
+---
 
-**1. Repozitórium klónozása:**
+## 🖥️ Dashboard components
+
+- **5 KPI cards** — Current, Average, Maximum, Minimum, Range
+- **CO₂ concentration chart** — Raw + Savitzky-Golay trend line with zoom controls
+- **Live gauge** — Semicircular dial showing real-time PPM value
+- **Rate of change chart** — ppm/min
+- **Acceleration chart** — Δ rate of change
+- **Time distribution chart** — Horizontal bar chart by category
+- **Air quality bars** — Daily percentage breakdown
+- **Event log** — Automatic alerts on threshold crossings
+
+---
+
+## 🛠️ Technology stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Backend** | Node.js + Express.js |
+| **Real-time** | Socket.io |
+| **Frontend** | EJS + Vanilla JS |
+| **Charts** | Chart.js 4.4 |
+| **Database** | PostgreSQL — Neon.tech cloud |
+| **Algorithm** | Savitzky-Golay (`ml-savitzky-golay`) |
+| **Styling** | Custom CSS — glassmorphism, aurora animation |
+
+---
+
+## ⚙️ Installation
+
+### Prerequisites
+- Node.js 18+
+- Neon PostgreSQL database ([neon.tech](https://neon.tech))
+
+### 1. Clone the repository
+
 ```bash
-git clone [https://github.com/Eto6967/grexair-node.git](https://github.com/Eto6967/grexair-node.git)
+git clone https://github.com/Eto6967/grexair-node.git
 cd grexair-node
-2. Környezeti változók (.env):
-Hozd létre a .env fájlt a főkönyvtárban, és add meg az adatbázis elérhetőségét:
+```
 
-Kódrészlet
-DB_URL=postgresql://felhasznalo:jelszo@ep-valami.neon.tech/neve?sslmode=require
-3. Konténerek indítása (Docker):
-A rendszer két konténert indít: egyet a weboldalnak (greexair-app) és egyet a soros portos adatgyűjtésnek (greexair-uploader).
+### 2. Install dependencies
 
-Bash
-docker-compose up -d --build
-📂 Projektstruktúra
-server.js - Fő webszerver, API végpontok és WebSockets logika.
+```bash
+npm install
+```
 
-uploader.js - Dedikált adatgyűjtő, amely a soros portról (/dev/ttyUSB0) olvassa és továbbítja a mérési adatokat.
+### 3. Configure environment variables
 
-dataManager.js - Adatbázis-kapcsolat, gyorsítótárazás és Savitzky-Golay matematikai analízis.
+Copy `.env.example` to `.env` and fill in your values:
 
-public/js/monitor.js - A frontend agya: grafikonok rajzolása, dinamikus skálázás és státuszfigyelés.
+```env
+DB_URL=postgresql://user:password@ep-something.neon.tech/dbname?sslmode=require
+PORT=5000
+```
 
-views/ - EJS HTML sablonok (monitor, live, index).
+### 4. Start the server
 
-docker-compose.yml - A kettős (App + Uploader) szolgáltatás-architektúra definíciója.
+```bash
+node server.js
+```
+
+Open in browser: **http://localhost:5000**
+
+---
+
+## 📂 Project structure
+
+```
+GreexAir/
+├── server.js          ← Web server, API endpoints, Socket.io
+├── dataManager.js     ← DB connection, caching, Savitzky-Golay analysis
+├── config.js          ← Threshold values and configuration
+├── .env               ← Database URL (not committed to git!)
+├── public/
+│   ├── css/
+│   │   └── grexair.css      ← Full design system
+│   ├── js/
+│   │   ├── monitor.js       ← Dashboard logic, charts, socket handling
+│   │   ├── main.js          ← Demo and upload pages
+│   │   └── theme.js         ← Dark/light theme management
+│   └── logo.png             ← GrexAir logo
+└── views/
+    ├── monitor.ejs    ← Main dashboard
+    ├── index.ejs      ← Demo page
+    └── live.ejs       ← CSV upload page
+```
+
+---
+
+## 🌈 CO₂ levels and colour codes
+
+| CO₂ level | Status | Colour |
+| :--- | :--- | :--- |
+| < 800 ppm | 🟢 Excellent | Green |
+| 800–1000 ppm | 🟡 Good | Yellow |
+| 1000–1200 ppm | 🟠 Acceptable | Orange |
+| 1200–1500 ppm | 🔴 Warning | Red-orange |
+| > 1500 ppm | 🚨 Dangerous | Red (pulsing) |
+
+---
+
+## 🔌 API endpoints
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/` | GET | Main dashboard |
+| `/api/history` | POST | Historical day data `{ date: "YYYY-MM-DD" }` |
+| `/api/esp32` | GET | Current PPM value — for ESP32 displays |
+| `/demo` | GET | Demo data (SENSOR.CSV) |
+| `/upload` | POST | CSV upload and analysis |
+
+---
+
+## 🔧 Arduino / ESP32 integration
+
+Sensor readings should be written directly to the Neon PostgreSQL database:
+
+```sql
+INSERT INTO sensor_data (co2_ppm) VALUES (1250);
+```
+
+An ESP32 display can poll the current value from the `/api/esp32` endpoint:
+
+```json
+{ "current_co2": 1092 }
+```
+
+---
 
 <p align="center">
-<b>GrexAir Project • Professzionális IoT Megoldás</b>
-
-
-<i>Nyílt forráskódú rendszer a biztonságosabb beltéri környezetért.</i>
+  <b>GrexAir v4.0 • Open-source IoT project</b><br>
+  <i>For healthier indoor air 🌱</i>
 </p>

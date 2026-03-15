@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.0.0-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white">
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white">
@@ -183,6 +183,6 @@ Az ESP32 az aktuális értéket a `/api/esp32` végpontról kérheti le:
 ---
 
 <p align="center">
-  <b>GrexAir v4.0 • Nyílt forráskódú IoT projekt</b><br>
+  <b>GrexAir v2.0 • Nyílt forráskódú IoT projekt</b><br>
   <i>A biztonságosabb beltéri levegőért 🌱</i>
 </p>

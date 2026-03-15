@@ -22,7 +22,11 @@
 
 ## 📸 Képernyőkép
 
-> *CO₂ Monitoring dashboard — valós idejű adatok, színkódolt kártyák, Min/Max vonalak*
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="GrexAir Dashboard" width="900">
+</p>
+
+> *CO₂ Monitoring dashboard valós idejű adatok, színkódolt kártyák, Min/Max vonalak*
 
 ---
 
@@ -51,14 +55,14 @@ A **GrexAir** egy IoT megoldás zárt területek (irodák, tantermek, raktárak)
 
 ## 🖥️ Dashboard elemek
 
-- **5 KPI kártya** — Jelenlegi, Átlag, Maximum, Minimum, Tartomány
-- **CO₂ koncentráció grafikon** — Nyers + Savitzky-Golay trendvonal, zoom gombok
-- **Aktuális szint gauge** — Félkör műszerfal valós PPM értékkel
-- **Változási sebesség grafikon** — ppm/perc
-- **Gyorsulás grafikon** — Δ sebesség változása
-- **Időbeli eloszlás** — Vízszintes bar chart kategóriánként
-- **Levegőminőség sávok** — Napi százalékos eloszlás
-- **Eseménynapló** — Automatikus riasztás küszöbátlépésnél
+- **5 KPI kártya** Jelenlegi, Átlag, Maximum, Minimum, Tartomány
+- **CO₂ koncentráció grafikon** Nyers + Savitzky-Golay trendvonal, zoom gombok
+- **Aktuális szint gauge** Félkör műszerfal valós PPM értékkel
+- **Változási sebesség grafikon** ppm/perc
+- **Gyorsulás grafikon** Δ sebesség változása
+- **Időbeli eloszlás** Vízszintes bar chart kategóriánként
+- **Levegőminőség sávok** Napi százalékos eloszlás
+- **Eseménynapló** Automatikus riasztás küszöbátlépésnél
 
 ---
 

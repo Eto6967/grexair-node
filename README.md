@@ -7,11 +7,11 @@
 
 <p align="center">
   <b>Intelligent CO₂ monitoring system for enclosed spaces.</b><br>
-  <i>Real-time monitoring · Predictive analytics · Arduino integration</i>
+  <i>Real-time monitoring · Smart ventilation advice · Arduino integration</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-2.1.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white">
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white">
@@ -45,8 +45,10 @@
 | 📈 **Min/Max markers** | Dashed red/green horizontal reference lines on every chart |
 | 🧠 **Savitzky-Golay filter** | Noise-free trend line displayed alongside raw measurements |
 | ⚡ **Rate of change & acceleration** | Analysis of CO₂ change dynamics |
-| 🟢 **Online/Offline indicator** | Automatically switches to OFFLINE after a 5-minute data timeout |
-| 📅 **Archive browser** | Look up historical data from any previous day via a date picker |
+| 🟢 **Online/Offline indicator** | Automatically switches to OFFLINE after a 3-minute data timeout (UTC timestamp based) |
+| 📅 **Archive browser** | Data loads automatically on page open; switching days triggers instant reload via the date picker — no button required |
+| 🔍 **Time-based zoom** | 1h / 30m / 15m zoom on all charts, works in both live and archive mode |
+| 🌬️ **Ventilation advice** | Real-time recommendation based on current CO₂ level and rate of change |
 | 📤 **CSV export** | Download all data with a single click |
 | 🌙 **Dark / Light theme** | Toggleable theme saved to localStorage |
 | 📱 **Responsive design** | Optimised layout for mobile and tablet |
@@ -56,12 +58,13 @@
 ## 🖥️ Dashboard components
 
 - **5 KPI cards** — Current, Average, Maximum, Minimum, Range
-- **CO₂ concentration chart** — Raw + Savitzky-Golay trend line with zoom controls
+- **CO₂ concentration chart** — Raw + Savitzky-Golay trend line with time-based zoom (All / 1h / 30m / 15m)
 - **Live gauge** — Semicircular dial showing real-time PPM value
 - **Rate of change chart** — ppm/min
 - **Acceleration chart** — Δ rate of change
 - **Time distribution chart** — Horizontal bar chart by category
 - **Air quality bars** — Daily percentage breakdown
+- **Ventilation advice pill** — Live suggestion based on PPM level and trend
 - **Event log** — Automatic alerts on threshold crossings
 
 ---
@@ -154,6 +157,17 @@ GreexAir/
 
 ---
 
+## 🌬️ Ventilation advice logic
+
+| Condition | Advice |
+| :--- | :--- |
+| > 1500 ppm or rising fast above 1200 | 🔴 Immediate ventilation required |
+| > 1000 ppm or rising above 800 | 🟠 Ventilation recommended |
+| Rising trend above 700 ppm | 🟡 Monitor the level |
+| Low and stable | 🟢 Air quality is fine |
+
+---
+
 ## 🔌 API endpoints
 
 | Endpoint | Method | Description |
@@ -183,6 +197,6 @@ An ESP32 display can poll the current value from the `/api/esp32` endpoint:
 ---
 
 <p align="center">
-  <b>GrexAir v2.0 • Open-source IoT project</b><br>
+  <b>GrexAir v2.1 • Open-source IoT project</b><br>
   <i>For healthier indoor air 🌱</i>
 </p>

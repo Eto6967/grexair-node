@@ -7,11 +7,11 @@
 
 <p align="center">
   <b>Intelligens CO₂ felügyeleti rendszer zárt területekhez.</b><br>
-  <i>Valós idejű monitoring · Prediktív analitika · Arduino integráció</i>
+  <i>Valós idejű monitoring · Szellőztetési javaslat · Arduino integráció</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-2.1.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white">
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white">
@@ -26,7 +26,7 @@
   <img src="screenshots/dashboard.png" alt="GrexAir Dashboard" width="900">
 </p>
 
-> *CO₂ Monitoring dashboard valós idejű adatok, színkódolt kártyák, Min/Max vonalak*
+> *CO₂ Monitoring dashboard — valós idejű adatok, színkódolt kártyák, Min/Max vonalak*
 
 ---
 
@@ -45,8 +45,10 @@ A **GrexAir** egy IoT megoldás zárt területek (irodák, tantermek, raktárak)
 | 📈 **Min/Max jelölők** | Szaggatott piros/zöld vízszintes vonalak minden grafikonon |
 | 🧠 **Savitzky-Golay szűrő** | Zajmentes trendvonal a nyers mérések mellett |
 | ⚡ **Sebesség & Gyorsulás** | A CO₂ változás dinamikájának elemzése |
-| 🟢 **Online/Offline jelző** | 5 perces timeout után automatikusan OFFLINE státusz |
-| 📅 **Archívum böngésző** | Korábbi napok adatainak visszakeresése naptárból |
+| 🟢 **Online/Offline jelző** | 3 perces adathiány után automatikusan OFFLINE státusz (UTC időbélyeg alapján) |
+| 📅 **Archívum böngésző** | Oldalmegnyitáskor automatikus adatbetöltés; a dátumválasztóval azonnali nap-váltás — külön gomb nélkül |
+| 🔍 **Időalapú zoom** | 1ó / 30p / 15p zoom minden grafikonon, élő és archív módban egyaránt |
+| 🌬️ **Szellőztetési javaslat** | Valós idejű javaslat az aktuális CO₂ szint és a változási trend alapján |
 | 📤 **CSV export** | Összes adat letöltése egy kattintással |
 | 🌙 **Sötét/Világos téma** | Átkapcsolható, localStorage-ba mentett téma |
 | 📱 **Reszponzív design** | Mobil és tablet optimalizált elrendezés |
@@ -55,14 +57,15 @@ A **GrexAir** egy IoT megoldás zárt területek (irodák, tantermek, raktárak)
 
 ## 🖥️ Dashboard elemek
 
-- **5 KPI kártya** Jelenlegi, Átlag, Maximum, Minimum, Tartomány
-- **CO₂ koncentráció grafikon** Nyers + Savitzky-Golay trendvonal, zoom gombok
-- **Aktuális szint gauge** Félkör műszerfal valós PPM értékkel
-- **Változási sebesség grafikon** ppm/perc
-- **Gyorsulás grafikon** Δ sebesség változása
-- **Időbeli eloszlás** Vízszintes bar chart kategóriánként
-- **Levegőminőség sávok** Napi százalékos eloszlás
-- **Eseménynapló** Automatikus riasztás küszöbátlépésnél
+- **5 KPI kártya** — Jelenlegi, Átlag, Maximum, Minimum, Tartomány
+- **CO₂ koncentráció grafikon** — Nyers + Savitzky-Golay trendvonal, időalapú zoom (Összes / 1ó / 30p / 15p)
+- **Aktuális szint gauge** — Félkör műszerfal valós PPM értékkel
+- **Változási sebesség grafikon** — ppm/perc
+- **Gyorsulás grafikon** — Δ sebesség változása
+- **Időbeli eloszlás** — Vízszintes bar chart kategóriánként
+- **Levegőminőség sávok** — Napi százalékos eloszlás
+- **Szellőztetési javaslat pill** — Élő javaslat a PPM szint és a trend alapján
+- **Eseménynapló** — Automatikus riasztás küszöbátlépésnél
 
 ---
 
@@ -154,6 +157,17 @@ GreexAir/
 
 ---
 
+## 🌬️ Szellőztetési javaslat logika
+
+| Feltétel | Javaslat |
+| :--- | :--- |
+| > 1500 ppm, vagy gyorsan emelkedik 1200 felett | 🔴 Azonnali szellőztetés szükséges |
+| > 1000 ppm, vagy emelkedik 800 felett | 🟠 Szellőztetés javasolt |
+| Emelkedő trend 700 ppm felett | 🟡 Figyelje a szintet |
+| Alacsony és stabil | 🟢 Levegő rendben |
+
+---
+
 ## 🔌 API végpontok
 
 | Végpont | Metódus | Leírás |
@@ -183,6 +197,6 @@ Az ESP32 az aktuális értéket a `/api/esp32` végpontról kérheti le:
 ---
 
 <p align="center">
-  <b>GrexAir v2.0 • Nyílt forráskódú IoT projekt</b><br>
+  <b>GrexAir v2.1 • Nyílt forráskódú IoT projekt</b><br>
   <i>A biztonságosabb beltéri levegőért 🌱</i>
 </p>

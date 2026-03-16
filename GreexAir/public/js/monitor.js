@@ -7,10 +7,10 @@ function setOnline(on) {
     var lb=document.getElementById('live-btn'),lt=document.getElementById('live-btn-text');
     var sb=document.getElementById('sensor-badge'),st=document.getElementById('sensor-status-text');
     if(lb&&lt){lb.className=on?'live-btn active':'live-btn offline-mode';lt.textContent=on?'ONLINE':'OFFLINE';}
-    if(sb&&st){sb.className=on?'color-green':'color-red';st.textContent=on?'Arduino aktiv':'Nincs adat >5p';}
+    if(sb&&st){sb.className=on?'color-green':'color-red';st.textContent=on?'Arduino aktív':'Nincs adat (>3 p)';}
 }
-function resetOff(){if(_ot)clearTimeout(_ot);setOnline(true);_ot=setTimeout(()=>setOnline(false),300000);}
-_ot=setTimeout(()=>setOnline(false),300000);
+function resetOff(){if(_ot)clearTimeout(_ot);setOnline(true);_ot=setTimeout(()=>setOnline(false),180000);}
+_ot=setTimeout(()=>setOnline(false),180000);
 
 function co2Col(ppm){
     var n=parseInt(ppm);
@@ -133,6 +133,61 @@ var minMaxPlugin = {
 
 Chart.register(livePlugin, minMaxPlugin);
 
+/* ── Időalapú zoom függvény ── */
+window._fullChartArrays = null;
+window._fullTimestamps = [];
+
+function applyZoom(zoom) {
+    var f = window._fullChartArrays;
+    if (!f) return;
+    var labels = f.labels, smooth = f.smooth, raw = f.raw, speeds = f.speeds, accels = f.accels;
+
+    if (zoom !== 'all' && window._fullTimestamps.length) {
+        var mins = parseInt(zoom);
+        var lastTs = window._fullTimestamps[window._fullTimestamps.length - 1];
+        var refTime = new Date(lastTs.replace(' ', 'T') + 'Z').getTime();
+        var cutoff = refTime - mins * 60000;
+        var startIdx = 0;
+        for (var i = window._fullTimestamps.length - 1; i >= 0; i--) {
+            var t = new Date(window._fullTimestamps[i].replace(' ', 'T') + 'Z').getTime();
+            if (t <= cutoff) { startIdx = i + 1; break; }
+        }
+        labels  = labels.slice(startIdx);
+        smooth  = smooth.slice(startIdx);
+        raw     = raw.slice(startIdx);
+        speeds  = speeds.slice(startIdx);
+        accels  = accels.slice(startIdx);
+    }
+
+    var minCo2 = Math.min.apply(null, smooth.concat(raw).filter(function(v){ return !isNaN(v); }));
+    if (window.co2Chart && window.co2Chart.options.scales && window.co2Chart.options.scales.y)
+        window.co2Chart.options.scales.y.min = Math.max(-10, Math.floor(minCo2) - 20);
+
+    if (window.speedChart && speeds.length) {
+        var minSpd = Math.min.apply(null, speeds.filter(function(v){ return !isNaN(v); }));
+        var maxSpd = Math.max.apply(null, speeds.filter(function(v){ return !isNaN(v); }));
+        window.speedChart.options.scales.y.min = minSpd - 0.5;
+        window.speedChart.options.scales.y.max = maxSpd + 0.5;
+    }
+    if (window.accelChart && accels.length) {
+        var minAcc = Math.min.apply(null, accels.filter(function(v){ return !isNaN(v); }));
+        var maxAcc = Math.max.apply(null, accels.filter(function(v){ return !isNaN(v); }));
+        window.accelChart.options.scales.y.min = minAcc - 0.2;
+        window.accelChart.options.scales.y.max = maxAcc + 0.2;
+    }
+
+    window.co2Chart.data.labels = labels;
+    window.co2Chart.data.datasets[0].data = smooth;
+    window.co2Chart.data.datasets[1].data = raw;
+    window.co2Chart.update('none');
+    window.speedChart.data.labels = labels;
+    window.speedChart.data.datasets[0].data = speeds;
+    window.speedChart.update('none');
+    window.accelChart.data.labels = labels;
+    window.accelChart.data.datasets[0].data = accels;
+    window.accelChart.update('none');
+}
+
 /* ── Charts ── */
 window.co2Chart = new Chart(document.getElementById('co2Chart').getContext('2d'), {
     type: 'line',
@@ -183,7 +238,36 @@ function updateGauge(ppm) {
     v.textContent=n; v.style.color=c.hex;
 }
 
-/* ── updateUI ── */
+/* ── applyZoom ── */
+window.applyZoom = function(z){
+    var src = window._fullChartArrays;
+    var ts  = window._fullTimestamps;
+    if(!src || !src.labels || !src.labels.length) return;
+    var labels,smooth,raw,speeds,accels;
+    if(z==='all'){
+        labels=src.labels.slice();smooth=src.smooth.slice();raw=src.raw.slice();speeds=src.speeds.slice();accels=src.accels.slice();
+    } else {
+        var mins=parseInt(z);
+        var cutoffMs=null;
+        if(ts && ts.length){
+            var lastTs=new Date(ts[ts.length-1].replace(' ','T')+'Z');
+            if(!isNaN(lastTs)) cutoffMs=lastTs.getTime()-mins*60000;
+        }
+        var startIdx=0;
+        if(cutoffMs!==null && ts){
+            for(var i=0;i<ts.length;i++){
+                var t=new Date(ts[i].replace(' ','T')+'Z');
+                if(!isNaN(t)&&t.getTime()>=cutoffMs){startIdx=i;break;}
+            }
+        }
+        labels=src.labels.slice(startIdx);smooth=src.smooth.slice(startIdx);raw=src.raw.slice(startIdx);speeds=src.speeds.slice(startIdx);accels=src.accels.slice(startIdx);
+    }
+    if(window.co2Chart){window.co2Chart.data.labels=labels;window.co2Chart.data.datasets[0].data=smooth;window.co2Chart.data.datasets[1].data=raw;window.co2Chart.update('none');}
+    if(window.speedChart){window.speedChart.data.labels=labels;window.speedChart.data.datasets[0].data=speeds;window.speedChart.update('none');}
+    if(window.accelChart){window.accelChart.data.labels=labels;window.accelChart.data.datasets[0].data=accels;window.accelChart.update('none');}
+};
+
+
 function updateUI(payload) {
     if(!payload) return;
     var cur=parseInt(payload.kpi.current), avg=parseInt(payload.kpi.avg);
@@ -273,65 +357,34 @@ var rDiv=document.getElementById('kpi-range');
         var speeds = payload.chartData.map(function(d){ return d.speed; });
         var accels = payload.chartData.map(function(d){ return d.accel; });
 
-        // --- ZOOM LOGIKA ---
+        // --- TELJES ADAT MENTESE + ZOOM ---
+        window._fullChartArrays = { labels: labels, smooth: smooth, raw: raw, speeds: speeds, accels: accels };
+        window._fullTimestamps = payload.chartData.map(function(d){ return d.x || ''; });
         var activeBtn = document.querySelector('.ch-opt.active');
         var zoom = activeBtn ? activeBtn.dataset.zoom : 'all';
-
-        if (zoom !== 'all') {
-            var n = -parseInt(zoom);
-            labels = labels.slice(n);
-            smooth = smooth.slice(n);
-            raw = raw.slice(n);
-            speeds = speeds.slice(n);
-            accels = accels.slice(n);
-        }
-        
-        // --- 1. CO2 Grafikon (Min - 20) ---
-        var minCo2 = Math.min(...smooth.concat(raw).filter(v => !isNaN(v)));
-        if(window.co2Chart && window.co2Chart.options && window.co2Chart.options.scales && window.co2Chart.options.scales.y) {
-            window.co2Chart.options.scales.y.min = Math.max(-10, Math.floor(minCo2) - 20);
-        }
-
-        // --- 2. SEBESSÉG Grafikon (Dinamikus határok + margó) ---
-        if(window.speedChart && window.speedChart.options && window.speedChart.options.scales.y) {
-            var minSpd = Math.min(...speeds.filter(v => !isNaN(v)));
-            var maxSpd = Math.max(...speeds.filter(v => !isNaN(v)));
-            window.speedChart.options.scales.y.min = minSpd - 0.5;
-            window.speedChart.options.scales.y.max = maxSpd + 0.5;
-        }
-
-        // --- 3. GYORSULÁS Grafikon (Dinamikus határok + margó) ---
-        if(window.accelChart && window.accelChart.options && window.accelChart.options.scales.y) {
-            var minAcc = Math.min(...accels.filter(v => !isNaN(v)));
-            var maxAcc = Math.max(...accels.filter(v => !isNaN(v)));
-            window.accelChart.options.scales.y.min = minAcc - 0.2;
-            window.accelChart.options.scales.y.max = maxAcc + 0.2;
-        }
-
-        window.co2Chart.data.labels = labels;
-        window.co2Chart.data.datasets[0].data = smooth;
-        window.co2Chart.data.datasets[1].data = raw;
-        window.co2Chart.update('none');
-        window.speedChart.data.labels = labels;
-        window.speedChart.data.datasets[0].data = speeds;
-        window.speedChart.update('none');
-        window.accelChart.data.labels = labels;
-        window.accelChart.data.datasets[0].data = accels;
-        window.accelChart.update('none');
+        applyZoom(zoom);
     }
     if(payload.timeStats){ window.timeBarChart.data.datasets[0].data=payload.timeStats; window.timeBarChart.update('none'); }
     
-// --- OKOS ONLINE/OFFLINE FIGYELÉS (JAVÍTVA) ---
+// --- ONLINE/OFFLINE: utolso meres idobelyege vs mostani ido (local time, Z nelkul) ---
     if (isLiveMode && payload.chartData && payload.chartData.length > 0) {
         var lastPointTime = payload.chartData[payload.chartData.length - 1].x;
-        if (lastPointTime !== window._lastPayloadTime) {
-            window._lastPayloadTime = lastPointTime;
-            resetOff();
+        if (lastPointTime) {
+            var lastDt = new Date(lastPointTime.replace(' ', 'T') + 'Z');
+            var diffMs = Date.now() - lastDt.getTime();
+            if (!isNaN(diffMs) && diffMs < 180000) {
+                if (_ot) clearTimeout(_ot);
+                setOnline(true);
+                _ot = setTimeout(function(){ setOnline(false); }, 180000 - diffMs);
+            } else {
+                if (_ot) clearTimeout(_ot);
+                setOnline(false);
+            }
         }
     }
 }
 
-socket.on('update_data', function(p){ if(isLiveMode) updateUI(p); });
+socket.on('update_data', function(p){ if(isLiveMode){ resetOff(); updateUI(p); } });
 socket.on('status_message', function(d){ var el=document.getElementById('sensor-status-text'); if(isLiveMode&&el) el.textContent=d.msg; });
 
 document.getElementById('btn-history') && document.getElementById('btn-history').addEventListener('click', function(){
@@ -350,7 +403,7 @@ document.getElementById('btn-history') && document.getElementById('btn-history')
         setOnline(true);
         resetOff();
         var el = document.getElementById('sensor-status-text'); 
-        if(el) el.textContent = 'Arduino aktiv';
+        if(el) el.textContent = 'Arduino aktív';
     } else {
         if(_ot) clearTimeout(_ot);
         setOnline(false); // Ez szürkíti ki és írja ki, hogy OFFLINE
@@ -370,5 +423,5 @@ document.getElementById('btn-history') && document.getElementById('btn-history')
 
 document.getElementById('btn-live') && document.getElementById('btn-live').addEventListener('click', function(){
     isLiveMode=true; setOnline(true); resetOff();
-    var el=document.getElementById('sensor-status-text'); if(el) el.textContent='Visszateres elo modra...';
+    var el=document.getElementById('sensor-status-text'); if(el) el.textContent='Visszatérés élő módra...';
 });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-  <title>GrexAir CO2 Monitor</title>
+  <title>GrexAir CO₂ Monitor</title>
   <link rel="icon" type="image/png" href="/static/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -12,10 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    /* EXTRA BIZTONSAG: .kpi-val b szin — nincs CSS color rule */
     .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: clamp(1.7rem,3.5vw,2.1rem); font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
     .kpi-val b { font-weight: 600; font-size: inherit; }
-    /* Semmilyen color rule nincs .kpi-val b-n */
   </style>
 </head>
 <body>
@@ -25,119 +23,116 @@
 <nav class="gx-nav">
   <a href="/" class="nav-brand">
     <div class="nav-logo-wrap"><img src="/static/logo.png" alt="G" style="width:100%;height:100%;object-fit:contain" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'color:#fff;font-size:10px;font-weight:800;font-family:monospace',textContent:'CO2'}))"></div>
-    <div><div class="nav-brand-name">GrexAir</div><div class="nav-brand-tagline">CO2 Monitor</div></div>
+    <div><div class="nav-brand-name">GrexAir</div><div class="nav-brand-tagline">CO₂ Monitor</div></div>
   </a>
   <div class="nav-links">
     <a href="/" class="nav-link active"><i class="fas fa-chart-line" style="font-size:10px;margin-right:4px"></i>Monitor</a>
     <a href="/demo" class="nav-link"><i class="fas fa-play-circle" style="font-size:10px;margin-right:4px"></i>Demo</a>
-    <a href="/upload" class="nav-link"><i class="fas fa-upload" style="font-size:10px;margin-right:4px"></i>Feltoltes</a>
+    <a href="/upload" class="nav-link"><i class="fas fa-upload" style="font-size:10px;margin-right:4px"></i>Feltöltés</a>
   </div>
   <div class="nav-right">
     <button id="live-btn" class="<%= start_live ? 'active' : 'offline-mode' %>"><span class="dot"></span><span id="live-btn-text"><%= start_live ? 'ONLINE' : 'OFFLINE' %></span></button>
-    <span id="sensor-badge" class="<%= start_live ? 'color-green' : 'color-red' %>"><i class="fas fa-microchip" style="font-size:9px"></i><span id="sensor-status-text"><%= start_live ? 'Arduino aktiv' : 'Nincs adat' %></span></span>
+    <span id="sensor-badge" class="<%= start_live ? 'color-green' : 'color-red' %>"><i class="fas fa-microchip" style="font-size:9px"></i><span id="sensor-status-text"><%= start_live ? 'Arduino aktív' : 'Nincs adat' %></span></span>
     <button class="notif-btn" id="notif-btn"><i class="fas fa-bell" style="font-size:12px"></i><span class="notif-dot" id="notif-dot"></span></button>
     <button class="theme-btn" id="theme-toggle"><i class="fas fa-sun" id="theme-icon"></i></button>
   </div>
 </nav>
 <div class="gx-page">
 <% if (!start_live) { %>
-<div class="toast-warning"><i class="fas fa-info-circle"></i><span>Ma meg nem erkezett meres. Legutolso: <strong><%= default_date %></strong>. <a href="#" id="jump-live" style="color:var(--blue);margin-left:6px">Elo nezethez</a></span></div>
+<div class="toast-warning"><i class="fas fa-info-circle"></i><span>Ma még nem érkezett mérés. Legutolsó: <strong><%= default_date %></strong>. <a href="#" id="jump-live" style="color:var(--blue);margin-left:6px">Adatok betöltése</a></span></div>
 <% } %>
 <div class="gx-hero gx-a0">
-  <div><h1>CO2 Monitoring</h1><div class="gx-hero-sub"><i class="fas fa-circle" style="color:var(--green);font-size:7px"></i>Elo adatok · Arduino to Neon PostgreSQL · 3s frissites</div></div>
+  <div><h1>CO₂ Monitoring</h1><div class="gx-hero-sub"><i class="fas fa-circle" style="color:var(--green);font-size:7px"></i>Élő adatok · Arduino → Neon PostgreSQL · 3 mp frissítés</div></div>
   <div class="gx-controls">
     <select id="date-selector" class="gx-select"><% available_dates.forEach(function(date){ %><option value="<%= date %>" <%= date===default_date?'selected':'' %>><%= date %></option><% }); %></select>
-    <button id="history-btn-vis" class="gx-btn primary"><i class="fas fa-calendar-day"></i> Napot betolt</button>
-    <button id="export-btn" class="gx-btn"><i class="fas fa-download"></i> Export</button>
+    <button id="export-btn" class="gx-btn"><i class="fas fa-download"></i> Exportálás</button>
   </div>
 </div>
 
-<!-- KPI GRID
-     id="kpi-current" a .kpi-val DIV-en van — a JS innerHTML-lel irja at -->
 <div class="gx-kpi-grid gx-a1">
   <div id="card-current" class="gx-card kpi-card hoverable">
     <div class="kpi-card-top"><span class="kpi-label">Jelenlegi</span><div class="kpi-icon" style="background:var(--blue-d)">🌡</div></div>
     <div class="kpi-val" id="kpi-current"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
-    <div class="kpi-sub">CO2 szint <span id="kpi-trend" class="kpi-trend flat">—</span></div>
+    <div class="kpi-sub">CO₂-szint <span id="kpi-trend" class="kpi-trend flat">—</span></div>
   </div>
   <div id="card-avg" class="gx-card kpi-card hoverable">
-    <div class="kpi-card-top"><span class="kpi-label">Atlag</span><div class="kpi-icon" style="background:var(--pur-d)">📊</div></div>
+    <div class="kpi-card-top"><span class="kpi-label">Átlag</span><div class="kpi-icon" style="background:var(--pur-d)">📊</div></div>
     <div class="kpi-val" id="kpi-avg"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
-    <div class="kpi-sub">Napi atlag</div>
+    <div class="kpi-sub">Napi átlag</div>
   </div>
   <div id="card-max" class="gx-card kpi-card hoverable">
     <div class="kpi-card-top"><span class="kpi-label">Maximum</span><div class="kpi-icon" style="background:var(--red-d)">⬆</div></div>
     <div class="kpi-val" id="kpi-max"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
-    <div class="kpi-sub">Napi csucs</div>
+    <div class="kpi-sub">Napi csúcs</div>
   </div>
   <div id="card-min" class="gx-card kpi-card hoverable">
     <div class="kpi-card-top"><span class="kpi-label">Minimum</span><div class="kpi-icon" style="background:var(--green-d)">⬇</div></div>
     <div class="kpi-val" id="kpi-min"><b style="color:var(--t1)">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
-    <div class="kpi-sub">Napi melypont</div>
+    <div class="kpi-sub">Napi mélypont</div>
   </div>
   <div id="card-range" class="gx-card kpi-card hoverable" style="border-top:2px solid var(--teal)">
-    <div class="kpi-card-top"><span class="kpi-label">Tartomany</span><div class="kpi-icon" style="background:var(--teal-d)">↕</div></div>
+    <div class="kpi-card-top"><span class="kpi-label">Tartomány</span><div class="kpi-icon" style="background:var(--teal-d)">↕</div></div>
     <div class="kpi-val" id="kpi-range"><b style="color:#5ac8fa">—</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
     <div class="kpi-sub">Max − Min</div>
   </div>
 </div>
 
 <div class="gx-status-row gx-a2">
-  <div id="air-status-box" class="air-status-box status-neutral">Varakozas...</div>
-  <div class="last-update-pill"><i class="fas fa-clock" style="font-size:9px;opacity:.6"></i>Frissitve: <span id="last-update">—</span></div>
-  <div class="last-update-pill" id="count-pill" style="display:none"><i class="fas fa-database" style="font-size:9px;opacity:.6"></i><span id="data-count">—</span> meres</div>
+  <div id="air-status-box" class="air-status-box status-neutral">Várakozás...</div>
+  <div class="last-update-pill"><i class="fas fa-clock" style="font-size:9px;opacity:.6"></i>Frissítve: <span id="last-update">—</span></div>
+  <div class="last-update-pill" id="count-pill" style="display:none"><i class="fas fa-database" style="font-size:9px;opacity:.6"></i><span id="data-count">—</span> mérés</div>
 </div>
 
 <div class="gx-row cols-31 gx-a3">
   <div class="gx-card chart-wrap">
     <div class="chart-header">
-      <div class="chart-title-block"><div class="chart-title-main">CO2 Koncentracio</div><div class="chart-title-sub">Nyers meres · Savitzky-Golay trendvonal</div></div>
+      <div class="chart-title-block"><div class="chart-title-main">CO₂-koncentráció</div><div class="chart-title-sub">Nyers mérés · Savitzky–Golay trendvonal</div></div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div class="chart-legend"><div class="leg-item"><div class="leg-dot" style="background:#0a84ff"></div>Trend</div><div class="leg-item"><div class="leg-dot" style="background:rgba(10,132,255,.35)"></div>Nyers</div></div>
-        <div class="chart-opts"><button class="ch-opt active" data-zoom="all">Osszes</button><button class="ch-opt" data-zoom="60">1o</button><button class="ch-opt" data-zoom="30">30p</button><button class="ch-opt" data-zoom="15">15p</button></div>
+        <div class="chart-opts"><button class="ch-opt active" data-zoom="all">Összes</button><button class="ch-opt" data-zoom="60">1 ó</button><button class="ch-opt" data-zoom="30">30 p</button><button class="ch-opt" data-zoom="15">15 p</button></div>
       </div>
     </div>
     <div class="chart-h-xl"><canvas id="co2Chart"></canvas></div>
   </div>
   <div style="display:flex;flex-direction:column;gap:12px">
     <div class="gx-card gauge-mini-wrap">
-      <div class="gauge-mini-title">Aktualis szint</div>
+      <div class="gauge-mini-title">Aktuális szint</div>
       <div class="gauge-svg-wrap"><svg viewBox="0 0 140 75" width="140" height="75"><path d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/><path id="gauge-fill" d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="#0a84ff" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke 1s,filter 1s"/></svg><div class="gauge-center-val"><div class="gcv-num" id="gauge-val" style="color:#0a84ff">—</div><div class="gcv-unit">ppm</div></div></div>
       <div class="gauge-ticks-row">
-        <div class="g-tick"><div class="g-tick-dot" style="background:#30d158;box-shadow:0 0 5px #30d158"></div><div class="g-tick-val" style="color:#30d158">400</div><div class="g-tick-lbl">Kivalo</div></div>
-        <div class="g-tick"><div class="g-tick-dot" style="background:#ffd60a;box-shadow:0 0 5px #ffd60a"></div><div class="g-tick-val" style="color:#ffd60a">800</div><div class="g-tick-lbl">Jo</div></div>
-        <div class="g-tick"><div class="g-tick-dot" style="background:#ff9f0a;box-shadow:0 0 5px #ff9f0a"></div><div class="g-tick-val" style="color:#ff9f0a">1200</div><div class="g-tick-lbl">Figy</div></div>
-        <div class="g-tick"><div class="g-tick-dot" style="background:#ff453a;box-shadow:0 0 5px #ff453a"></div><div class="g-tick-val" style="color:#ff453a">1500</div><div class="g-tick-lbl">Krit</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#30d158;box-shadow:0 0 5px #30d158"></div><div class="g-tick-val" style="color:#30d158">400</div><div class="g-tick-lbl">Kiváló</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ffd60a;box-shadow:0 0 5px #ffd60a"></div><div class="g-tick-val" style="color:#ffd60a">800</div><div class="g-tick-lbl">Jó</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ff9f0a;box-shadow:0 0 5px #ff9f0a"></div><div class="g-tick-val" style="color:#ff9f0a">1200</div><div class="g-tick-lbl">Figy.</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ff453a;box-shadow:0 0 5px #ff453a"></div><div class="g-tick-val" style="color:#ff453a">1500</div><div class="g-tick-lbl">Krit.</div></div>
       </div>
     </div>
     <div class="gx-card stat-side">
       <div class="stat-side-title">Napi statisztika</div>
-      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Csucs ideje</span><span class="stat-row-badge badge-warn" id="stat-peak-badge">—</span></div><div class="stat-row-val" id="stat-peak-time">—</div><div class="stat-row-sub" id="stat-peak-val">—</div></div>
-      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Trend</span><span class="stat-row-badge badge-flat" id="stat-trend-badge">Stabil</span></div><div class="stat-row-val" id="stat-trend">+0</div><div class="stat-row-sub">ppm / utolso 10 pont</div></div>
-      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Meresek</span></div><div class="stat-row-val" id="stat-count">—</div><div class="stat-row-sub">mai nap ossz</div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Csúcs ideje</span><span class="stat-row-badge badge-warn" id="stat-peak-badge">—</span></div><div class="stat-row-val" id="stat-peak-time">—</div><div class="stat-row-sub" id="stat-peak-val">—</div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Trend</span><span class="stat-row-badge badge-flat" id="stat-trend-badge">Stabil</span></div><div class="stat-row-val" id="stat-trend">+0</div><div class="stat-row-sub">ppm / utolsó 10 pont</div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label">Mérések</span></div><div class="stat-row-val" id="stat-count">—</div><div class="stat-row-sub">mai nap összesen</div></div>
     </div>
   </div>
 </div>
 
 <div class="gx-row cols-3 gx-a4">
-  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#bf5af2">Valtozasi Sebesseg</div><div class="chart-title-sub">ppm/perc · Min-Max</div></div></div><div class="chart-h-md"><canvas id="speedChart"></canvas></div></div>
-  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#ff9f0a">Gyorsulas</div><div class="chart-title-sub">Delta sebesseg · Min-Max</div></div></div><div class="chart-h-md"><canvas id="accelChart"></canvas></div></div>
-  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#30d158">Idobeli Eloszlas</div><div class="chart-title-sub">Percek szama kategoriankent</div></div></div><div class="chart-h-md"><canvas id="timeBarChart"></canvas></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#bf5af2">Változási sebesség</div><div class="chart-title-sub">ppm/perc · Min–Max</div></div></div><div class="chart-h-md" style="height:210px"><canvas id="speedChart"></canvas></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#ff9f0a">Gyorsulás</div><div class="chart-title-sub">Δ sebesség · Min–Max</div></div></div><div class="chart-h-md" style="height:210px"><canvas id="accelChart"></canvas></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#30d158">Időbeli eloszlás</div><div class="chart-title-sub">Percek száma kategóriánként</div></div></div><div class="chart-h-md" style="height:210px"><canvas id="timeBarChart"></canvas></div></div>
 </div>
 
 <div class="gx-row cols-2 gx-a5">
   <div class="gx-card quality-bar-wrap">
-    <div class="quality-bar-title">Levegominoseg eloszlas</div>
+    <div class="quality-bar-title">Levegőminőség-eloszlás</div>
     <div class="quality-levels">
-      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#30d158"></div>Kivalo (&lt;800)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-good" style="width:0%;background:linear-gradient(90deg,#30d158,#0fa02e)"></div></div><div class="ql-pct" id="ql-good-pct" style="color:#30d158">—</div><div class="ql-time" id="ql-good-t">—</div></div>
-      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ffd60a"></div>Jo (800-1000)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-ok" style="width:0%;background:linear-gradient(90deg,#ffd60a,#e5b800)"></div></div><div class="ql-pct" id="ql-ok-pct" style="color:#ffd60a">—</div><div class="ql-time" id="ql-ok-t">—</div></div>
-      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff9f0a"></div>Figyelem (1k-1.5k)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-warn" style="width:0%;background:linear-gradient(90deg,#ff9f0a,#e08000)"></div></div><div class="ql-pct" id="ql-warn-pct" style="color:#ff9f0a">—</div><div class="ql-time" id="ql-warn-t">—</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#30d158"></div>Kiváló (&lt;800)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-good" style="width:0%;background:linear-gradient(90deg,#30d158,#0fa02e)"></div></div><div class="ql-pct" id="ql-good-pct" style="color:#30d158">—</div><div class="ql-time" id="ql-good-t">—</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ffd60a"></div>Jó (800–1000)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-ok" style="width:0%;background:linear-gradient(90deg,#ffd60a,#e5b800)"></div></div><div class="ql-pct" id="ql-ok-pct" style="color:#ffd60a">—</div><div class="ql-time" id="ql-ok-t">—</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff9f0a"></div>Figyelem (1000–1500)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-warn" style="width:0%;background:linear-gradient(90deg,#ff9f0a,#e08000)"></div></div><div class="ql-pct" id="ql-warn-pct" style="color:#ff9f0a">—</div><div class="ql-time" id="ql-warn-t">—</div></div>
       <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff453a"></div>Kritikus (&gt;1500)</div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-crit" style="width:0%;background:linear-gradient(90deg,#ff453a,#cc1a10)"></div></div><div class="ql-pct" id="ql-crit-pct" style="color:#ff453a">—</div><div class="ql-time" id="ql-crit-t">—</div></div>
     </div>
   </div>
   <div class="gx-card alert-panel">
-    <div class="alert-panel-title">Esemenynaplo <span class="alert-count" id="alert-count">0</span></div>
-    <div id="alert-list"><div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>Nincs aktiv riasztas</div></div>
+    <div class="alert-panel-title">Eseménynapló <span class="alert-count" id="alert-count">0</span></div>
+    <div id="alert-list"><div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>Nincs aktív riasztás</div></div>
   </div>
 </div>
 </div>
@@ -147,19 +142,30 @@
 
 <script src="/static/js/monitor.js?v=100"></script>
 <script>
-document.getElementById('history-btn-vis').onclick=()=>document.getElementById('btn-history').click();
+document.getElementById('date-selector').addEventListener('change',()=>document.getElementById('btn-history').click());
 document.getElementById('live-btn').onclick=()=>document.getElementById('btn-live').click();
-var jl=document.getElementById('jump-live');if(jl)jl.onclick=e=>{e.preventDefault();document.getElementById('btn-live').click();};
-var _L=[],_S=[],_R=[];
-document.querySelectorAll('[data-zoom]').forEach(b=>b.onclick=function(){document.querySelectorAll('[data-zoom]').forEach(x=>x.classList.remove('active'));this.classList.add('active');var z=this.dataset.zoom;if(!window.co2Chart)return;if(z==='all'){if(_L.length){window.co2Chart.data.labels=_L.slice();window.co2Chart.data.datasets[0].data=_S.slice();window.co2Chart.data.datasets[1].data=_R.slice();window.co2Chart.update('none');}return;}var n=-parseInt(z);if(!_L.length)return;window.co2Chart.data.labels=_L.slice(n);window.co2Chart.data.datasets[0].data=_S.slice(n);window.co2Chart.data.datasets[1].data=_R.slice(n);window.co2Chart.update('none');});
+var jl=document.getElementById('jump-live');if(jl)jl.onclick=e=>{e.preventDefault();var toast=jl.closest('.toast-warning');if(toast)toast.style.display='none';document.getElementById('btn-history').click();};
+document.querySelectorAll('[data-zoom]').forEach(b=>b.onclick=function(){
+  document.querySelectorAll('[data-zoom]').forEach(x=>x.classList.remove('active'));
+  this.classList.add('active');
+  if(typeof window.applyZoom==='function') window.applyZoom(this.dataset.zoom);
+});
 window.addEventListener('load',function(){setTimeout(function(){if(typeof window.updateUI!=='function')return;var orig=window.updateUI;window.updateUI=function(p){orig(p);afterUpdate(p);};window.GX_CHARTS=[window.co2Chart,window.speedChart,window.accelChart,window.timeBarChart].filter(Boolean);},300);});
+window.addEventListener('load',function(){setTimeout(function(){document.getElementById('btn-history').click();},350);});
 var _lastPpm=null,_alerts=[];
-function afterUpdate(p){if(!p)return;var cur=parseInt(p.kpi&&p.kpi.current);if(window.co2Chart&&window.co2Chart.data.labels.length){_L=window.co2Chart.data.labels.slice();_S=window.co2Chart.data.datasets[0].data.slice();_R=window.co2Chart.data.datasets[1].data.slice();}if(p.chartData&&p.chartData.length>=2){var last=p.chartData[p.chartData.length-1],prev=p.chartData[Math.max(0,p.chartData.length-10)];var diff=Math.round((last.y_smooth||last.y_raw)-(prev.y_smooth||prev.y_raw));var tb=document.getElementById('kpi-trend');if(tb){tb.textContent=(diff>0?'+':'')+diff+' ppm';tb.className='kpi-trend '+(diff>20?'up':diff<-20?'down':'flat');}var st=document.getElementById('stat-trend'),sb=document.getElementById('stat-trend-badge');if(st)st.textContent=(diff>0?'+':'')+diff;if(sb){sb.textContent=diff>20?'Emelkedo':diff<-20?'Csokkeno':'Stabil';sb.className='stat-row-badge '+(diff>20?'badge-up':diff<-20?'badge-down':'badge-flat');}}var cnt=p.chartData?p.chartData.length:0;var sc=document.getElementById('stat-count');if(sc)sc.textContent=cnt.toLocaleString('hu-HU');var dc=document.getElementById('data-count');if(dc)dc.textContent=cnt.toLocaleString('hu-HU');var cp=document.getElementById('count-pill');if(cp)cp.style.display=cnt?'flex':'none';if(p.timeStats){var ts=p.timeStats,tot=(ts[0]||0)+(ts[1]||0)+(ts[2]||0);setQL('good',ts[0]||0,tot);setQL('ok',0,tot);setQL('warn',ts[1]||0,tot);setQL('crit',ts[2]||0,tot);}if(p.chartData&&p.kpi.max&&window.co2Chart){for(var i=p.chartData.length-1;i>=0;i--){if(Math.round(p.chartData[i].y_raw)==p.kpi.max||Math.round(p.chartData[i].y_smooth)==p.kpi.max){var lbl=window.co2Chart.data.labels[i];var pt=document.getElementById('stat-peak-time'),pv=document.getElementById('stat-peak-val'),pb=document.getElementById('stat-peak-badge');if(pt&&lbl)pt.textContent=lbl;if(pv)pv.textContent=p.kpi.max+' ppm';if(pb){pb.className='stat-row-badge '+(p.kpi.max>1500?'badge-up':p.kpi.max>1000?'badge-warn':'badge-flat');pb.textContent=p.kpi.max>1500?'Kritikus':p.kpi.max>1000?'Figyelem':'Normal';}break;}}}addAlert(cur);}
-function setQL(k,v,tot){var pct=tot>0?Math.round(v/tot*100):0;var f=document.getElementById('ql-'+k);if(f)f.style.width=pct+'%';var pp=document.getElementById('ql-'+k+'-pct');if(pp)pp.textContent=pct+'%';var tt=document.getElementById('ql-'+k+'-t');if(tt)tt.textContent=Math.round(v*3/60)+'p';}
-var _thr=[1500,1200,1000,800];function addAlert(ppm){if(isNaN(ppm)||ppm===_lastPpm)return;var prev=_lastPpm;_lastPpm=ppm;if(prev===null)return;_thr.forEach(function(t){if((prev<t)!==(ppm<t)){var now=new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});var type=t>=1500?'danger':t>=1000?'warn':t>=800?'info':'good';_alerts.unshift({type:type,msg:(ppm>=t?'+'+t+' ppm kuszob atlepve':'-'+t+' ppm ala csokkent'),time:now,ppm:ppm});if(_alerts.length>8)_alerts.pop();}});renderAlerts();}
-function renderAlerts(){var list=document.getElementById('alert-list'),cnt=document.getElementById('alert-count'),dot=document.getElementById('notif-dot');if(!list)return;var d=_alerts.filter(function(a){return a.type==='danger'||a.type==='warn';}).length;if(cnt)cnt.textContent=d;if(dot)dot.classList.toggle('show',d>0);if(!_alerts.length){list.innerHTML='<div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>Nincs aktiv riasztas</div>';return;}list.innerHTML=_alerts.map(function(a){return'<div class="alert-item '+a.type+'"><div class="alert-icon">'+(a.type==='danger'?'!':a.type==='warn'?'?':'OK')+'</div><div class="alert-body"><div class="alert-title">'+a.msg+'</div><div class="alert-desc">'+a.ppm+' ppm</div></div><div class="alert-time">'+a.time+'</div></div>';}).join('');}
+function afterUpdate(p){if(!p)return;var cur=parseInt(p.kpi&&p.kpi.current);
+if(p.chartData&&p.chartData.length){
+  _L=p.chartData.map(function(d){var dt=new Date((d.x||'').replace(' ','T')+'Z');return isNaN(dt)?(d.x||'').substring(11,16):dt.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});});
+  _S=p.chartData.map(function(d){return d.y_smooth;});
+  _R=p.chartData.map(function(d){return d.y_raw;});
+  _SP=p.chartData.map(function(d){return d.speed;});
+  _AC=p.chartData.map(function(d){return d.accel;});
+}if(p.chartData&&p.chartData.length>=2){var last=p.chartData[p.chartData.length-1],prev=p.chartData[Math.max(0,p.chartData.length-10)];var diff=Math.round((last.y_smooth||last.y_raw)-(prev.y_smooth||prev.y_raw));var tb=document.getElementById('kpi-trend');if(tb){tb.textContent=(diff>0?'+':'')+diff+' ppm';tb.className='kpi-trend '+(diff>20?'up':diff<-20?'down':'flat');}var st=document.getElementById('stat-trend'),sb=document.getElementById('stat-trend-badge');if(st)st.textContent=(diff>0?'+':'')+diff;if(sb){sb.textContent=diff>20?'Emelkedő':diff<-20?'Csökkenő':'Stabil';sb.className='stat-row-badge '+(diff>20?'badge-up':diff<-20?'badge-down':'badge-flat');}}var cnt=p.chartData?p.chartData.length:0;var sc=document.getElementById('stat-count');if(sc)sc.textContent=cnt.toLocaleString('hu-HU');var dc=document.getElementById('data-count');if(dc)dc.textContent=cnt.toLocaleString('hu-HU');var cp=document.getElementById('count-pill');if(cp)cp.style.display=cnt?'flex':'none';if(p.timeStats){var ts=p.timeStats,tot=(ts[0]||0)+(ts[1]||0)+(ts[2]||0);setQL('good',ts[0]||0,tot);setQL('ok',0,tot);setQL('warn',ts[1]||0,tot);setQL('crit',ts[2]||0,tot);}if(p.chartData&&p.kpi.max&&window.co2Chart){for(var i=p.chartData.length-1;i>=0;i--){if(Math.round(p.chartData[i].y_raw)==p.kpi.max||Math.round(p.chartData[i].y_smooth)==p.kpi.max){var lbl=window.co2Chart.data.labels[i];var pt=document.getElementById('stat-peak-time'),pv=document.getElementById('stat-peak-val'),pb=document.getElementById('stat-peak-badge');if(pt&&lbl)pt.textContent=lbl;if(pv)pv.textContent=p.kpi.max+' ppm';if(pb){pb.className='stat-row-badge '+(p.kpi.max>1500?'badge-up':p.kpi.max>1000?'badge-warn':'badge-flat');pb.textContent=p.kpi.max>1500?'Kritikus':p.kpi.max>1000?'Figyelem':'Normális';}break;}}}addAlert(cur);}
+function setQL(k,v,tot){var pct=tot>0?Math.round(v/tot*100):0;var f=document.getElementById('ql-'+k);if(f)f.style.width=pct+'%';var pp=document.getElementById('ql-'+k+'-pct');if(pp)pp.textContent=pct+'%';var tt=document.getElementById('ql-'+k+'-t');if(tt)tt.textContent=Math.round(v*3/60)+' p';}
+var _thr=[1500,1200,1000,800];function addAlert(ppm){if(isNaN(ppm)||ppm===_lastPpm)return;var prev=_lastPpm;_lastPpm=ppm;if(prev===null)return;_thr.forEach(function(t){if((prev<t)!==(ppm<t)){var now=new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});var type=t>=1500?'danger':t>=1000?'warn':t>=800?'info':'good';_alerts.unshift({type:type,msg:(ppm>=t?'+'+t+' ppm küszöb átlépve':'-'+t+' ppm alá csökkent'),time:now,ppm:ppm});if(_alerts.length>8)_alerts.pop();}});renderAlerts();}
+function renderAlerts(){var list=document.getElementById('alert-list'),cnt=document.getElementById('alert-count'),dot=document.getElementById('notif-dot');if(!list)return;var d=_alerts.filter(function(a){return a.type==='danger'||a.type==='warn';}).length;if(cnt)cnt.textContent=d;if(dot)dot.classList.toggle('show',d>0);if(!_alerts.length){list.innerHTML='<div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>Nincs aktív riasztás</div>';return;}list.innerHTML=_alerts.map(function(a){return'<div class="alert-item '+a.type+'"><div class="alert-icon">'+(a.type==='danger'?'!':a.type==='warn'?'?':'OK')+'</div><div class="alert-body"><div class="alert-title">'+a.msg+'</div><div class="alert-desc">'+a.ppm+' ppm</div></div><div class="alert-time">'+a.time+'</div></div>';}).join('');}
 document.getElementById('notif-btn').onclick=function(){var p=document.querySelector('.alert-panel');if(p)p.scrollIntoView({behavior:'smooth',block:'start'});};
-document.getElementById('export-btn').onclick=function(){if(!window.co2Chart||!window.co2Chart.data.labels.length){alert('Nincs exportalhato adat!');return;}var L=window.co2Chart.data.labels,S=window.co2Chart.data.datasets[0].data,R=window.co2Chart.data.datasets[1].data;var SP=window.speedChart?window.speedChart.data.datasets[0].data:[];var rows=['Ido,CO2_nyers,CO2_savgol,Sebesseg'];L.forEach(function(l,i){rows.push([l,R[i]||'',S[i]||'',SP[i]||''].join(','));});var b=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});var u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='grexair_'+(document.getElementById('date-selector').value||'export')+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);};
+document.getElementById('export-btn').onclick=function(){if(!window.co2Chart||!window.co2Chart.data.labels.length){alert('Nincs exportálható adat!');return;}var L=window.co2Chart.data.labels,S=window.co2Chart.data.datasets[0].data,R=window.co2Chart.data.datasets[1].data;var SP=window.speedChart?window.speedChart.data.datasets[0].data:[];var rows=['\uFEFFId\u0151,CO2_nyers,CO2_savgol,Sebess\u00e9g'];L.forEach(function(l,i){rows.push([l,R[i]||'',S[i]||'',SP[i]||''].join(','));});var b=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});var u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='grexair_'+(document.getElementById('date-selector').value||'export')+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);};
 </script>
 </body>
 </html>

@@ -26,7 +26,7 @@
 ## 📸 Screenshot
 
 <p align="center">
-  <img src="screenshots/dashboard.png" alt="GrexAir Dashboard" width="900">
+  <img src="screenshots/Képernyőkép 2026-05-16 170454.png" alt="GrexAir Dashboard" width="900">
 </p>
 
 > *CO₂ Monitoring dashboard live data, colour-coded cards, interactive charts, CO₂ heatmap*

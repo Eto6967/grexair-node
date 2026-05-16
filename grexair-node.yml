@@ -15,7 +15,7 @@ services:
       - 1.1.1.1
     environment:
       # Fixen beégetve a link az App-nak:
-      - DB_URL=postgresql://neondb_owner:npg_XOSHJid94uCK@ep-delicate-smoke-agrpz918-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require
+      - DB_URL=postgresql://neondb_owner:npg_UXVM8wrRpq1L@ep-round-paper-agc8w2sr-pooler.c-2.eu-central-1.aws.neon.tech:5432/neondb?sslmode=require&channel_binding=require
       - TZ=Europe/Budapest
     ports:
       - "80:5000"
@@ -32,7 +32,7 @@ services:
     environment:
       - SERIAL_PORT=/dev/ttyUSB0
       # Ezt pótoltuk! Fixen beégetve a link az Uploader-nek is:
-      - DB_URL=postgresql://neondb_owner:npg_XOSHJid94uCK@ep-delicate-smoke-agrpz918-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require
+      - DB_URL=postgresql://neondb_owner:npg_UXVM8wrRpq1L@ep-round-paper-agc8w2sr-pooler.c-2.eu-central-1.aws.neon.tech:5432/neondb?sslmode=require&channel_binding=require
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"
     command: ["node", "uploader.js"]

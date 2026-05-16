@@ -1,0 +1,618 @@
+<%
+var tr = (typeof tr !== 'undefined' && tr) ? tr : {};
+var lang = (typeof lang !== 'undefined' && lang) ? lang : 'hu';
+%>
+<!DOCTYPE html>
+<html lang="<%= lang %>" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+  <title>GrexAir CO₂ Monitor</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Geist:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="/static/css/grexair.css?v=200">
+  <style>
+    /* Mobile overrides */
+    .gx-page{padding:8px 8px 60px}
+    .gx-row{gap:8px;margin-bottom:8px}
+    .gx-kpi-grid{grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+    .kpi-card{padding:10px 10px 8px}
+    .kpi-icon{display:none}
+    .gx-hero{flex-direction:column;gap:6px;margin-bottom:10px}
+    .gx-controls{flex-wrap:wrap;gap:5px}
+    .gx-status-row{flex-wrap:wrap;gap:5px}
+    .air-status-box{width:100%;text-align:center}
+    .cols-2,.cols-3,.cols-4,.cols-31{grid-template-columns:1fr!important}
+    .chart-right-col{flex-direction:row!important;flex-wrap:wrap;gap:8px!important}
+    .chart-right-col>.gx-card{flex:1;min-width:140px}
+    .chart-h-xl{height:240px}
+    .chart-h-md{height:160px}
+    .chart-header{flex-direction:column;gap:4px}
+    .gx-nav{padding:0 10px;height:50px}
+    .nav-brand-tagline{display:none}
+    .nav-links{display:none}
+    #serialConnect{display:none!important}
+    #sensor-badge{display:none}
+    #live-btn span:not(.dot){display:none}
+    .lang-code{display:none}
+    .notif-btn,.theme-btn{width:26px;height:26px;font-size:10px}
+    .stat-side{padding:10px;gap:6px}
+    .gauge-mini-wrap{padding:10px}
+    .gauge-svg-wrap svg{width:110px;height:60px}
+    .u-wrap{overflow:visible!important}
+    /* Keep chart wraps visible for uPlot */
+    .chart-wrap{overflow:visible!important}
+    .chart-h-xl,.chart-h-md{overflow:visible!important}
+  </style>
+</head>
+<body>
+<div id="preloader"><div class="pl-wrap"><img src="/static/logo.png" class="pl-logo" alt="G" onerror="this.style.display='none'"><div class="pl-bar"><div class="pl-bar-fill"></div></div></div></div>
+<div class="aurora"><div class="ao ao1"></div><div class="ao ao2"></div><div class="ao ao3"></div><div class="ao ao4"></div></div>
+<div class="grain"></div>
+
+<nav class="gx-nav">
+  <a href="/" class="nav-brand">
+    <div class="nav-logo-wrap"><img src="/static/logo.png" alt="G" style="width:100%;height:100%;object-fit:contain" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'color:#fff;font-size:10px;font-weight:800',textContent:'CO2'}))"></div>
+    <div><div class="nav-brand-name">GrexAir</div></div>
+  </a>
+  <div class="nav-right">
+    <div class="lang-picker" id="lang-picker" style="position:relative">
+      <button class="lang-current" onclick="toggleLangMenu()" id="lang-btn" style="padding:0 8px;height:28px">
+        <span class="fi fi-<%= lang==='en'?'gb':lang==='uk'?'ua':lang==='sr'?'rs':lang==='sl'?'si':lang %>" style="width:16px;height:12px;border-radius:2px"></span>
+        <i class="fas fa-chevron-down" style="font-size:7px;opacity:.5"></i>
+      </button>
+      <div class="lang-menu" id="lang-menu" style="display:none">
+        <% [['hu','hu','Magyar'],['en','gb','English'],['de','de','Deutsch'],['sk','sk','Slovenčina'],['ro','ro','Română'],['hr','hr','Hrvatski'],['sr','rs','Srpski'],['sl','si','Slovenščina'],['uk','ua','Українська'],['ru','ru','Русский']].forEach(function(l){ %>
+        <a href="/set-lang/<%= l[0] %>" class="lang-option <%= lang===l[0]?'active':'' %>">
+          <span class="fi fi-<%= l[1] %>" style="width:16px;height:12px;border-radius:2px"></span>
+          <span><%= l[2] %></span>
+        </a>
+        <% }); %>
+      </div>
+    </div>
+    <button id="live-btn" class="<%= start_live ? 'active' : 'offline-mode' %>"><span class="dot"></span></button>
+    <button class="notif-btn" id="notif-btn"><i class="fas fa-bell" style="font-size:11px"></i><span class="notif-dot" id="notif-dot"></span></button>
+    <button class="theme-btn" id="theme-toggle"><i class="fas fa-sun" id="theme-icon"></i></button>
+  </div>
+</nav>
+
+<div class="gx-page">
+
+<% if (!start_live) { %>
+<div class="toast-warning"><i class="fas fa-info-circle"></i><span><%= tr.toast_no_measure %> <strong><%= default_date %></strong>. <a href="#" id="jump-live" style="color:var(--blue);margin-left:6px"><%= tr.toast_load %></a></span></div>
+<% } %>
+
+<div class="gx-hero gx-a0">
+  <div><h1 style="font-size:1.3rem">CO₂ Monitoring</h1><div class="gx-hero-sub"><i class="fas fa-circle" style="color:var(--green);font-size:7px"></i><%= tr.hero_sub %></div></div>
+  <div class="gx-controls">
+    <select id="date-selector" class="gx-select"><% available_dates.forEach(function(date){ %><option value="<%= date %>" <%= date===default_date?'selected':'' %>><%= date %></option><% }); %></select>
+    <button id="pdf-btn" class="gx-btn" style="background:rgba(255,69,58,0.08);border-color:rgba(255,69,58,0.30);color:#ff453a"><i class="fas fa-file-pdf"></i> PDF</button>
+  </div>
+</div>
+
+<div class="gx-kpi-grid gx-a1">
+  <div id="card-current" class="gx-card kpi-card">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_current %></span></div>
+    <div class="kpi-val" id="kpi-current"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:10px"> ppm</span></div>
+    <div class="kpi-sub"><span id="kpi-trend" class="kpi-trend flat"></span></div>
+  </div>
+  <div id="card-avg" class="gx-card kpi-card">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_avg %></span></div>
+    <div class="kpi-val" id="kpi-avg"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:10px"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_avg %></div>
+  </div>
+  <div id="card-max" class="gx-card kpi-card">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_max %></span></div>
+    <div class="kpi-val" id="kpi-max"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:10px"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_max %></div>
+  </div>
+  <div id="card-min" class="gx-card kpi-card">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_min %></span></div>
+    <div class="kpi-val" id="kpi-min"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:10px"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_min %></div>
+  </div>
+</div>
+
+<div class="gx-status-row gx-a2">
+  <div id="air-status-box" class="air-status-box status-neutral"><%= tr.status_nodata %></div>
+  <div class="last-update-pill"><i class="fas fa-clock" style="font-size:9px;opacity:.6"></i><%= tr.updated %>: <span id="last-update">-</span></div>
+  <div class="last-update-pill" id="count-pill" style="display:none"><i class="fas fa-database" style="font-size:9px;opacity:.6"></i><span id="data-count">-</span> <%= tr.measurement %></div>
+</div>
+
+<!-- CO2 grafikon -->
+<div class="gx-row gx-a3" style="display:block">
+  <div class="gx-card chart-wrap">
+    <div class="chart-header">
+      <div class="chart-title-block"><div class="chart-title-main"><%= tr.chart_co2_title %></div><div class="chart-title-sub"><%= tr.chart_co2_sub %></div></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="chart-legend">
+          <button class="leg-toggle active" id="toggle-trend" onclick="toggleSeries(1,'toggle-trend')">
+            <div class="leg-dot" style="background:#0a84ff"></div><%= tr.toggle_trend %> <span style="opacity:.55;font-size:9px">(<%= tr.chart_filter_label %>)</span>
+          </button>
+          <button class="leg-toggle active" id="toggle-nyers" onclick="toggleSeries(2,'toggle-nyers')">
+            <div class="leg-dot" style="background:rgba(10,132,255,.5)"></div><%= tr.toggle_raw %>
+          </button>
+        </div>
+        <div class="chart-opts">
+          <button class="ch-opt active" data-zoom="all"><%= tr.btn_all %></button>
+          <button class="ch-opt" data-zoom="60">1 ó</button>
+          <button class="ch-opt" data-zoom="30">30 p</button>
+          <button class="ch-opt" data-zoom="15">15 p</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-h-xl" style="position:relative;overflow:visible"><div id="co2ChartWrap" style="position:relative;width:100%"></div></div>
+  </div>
+</div>
+
+<!-- Gauge + Stat -->
+<div class="gx-row" style="display:flex;gap:8px;margin-bottom:8px">
+  <div class="gx-card gauge-mini-wrap" style="flex:1">
+    <div class="gauge-mini-title"><%= tr.gauge_title %></div>
+    <div class="gauge-svg-wrap"><svg viewBox="0 0 140 75" width="110" height="60"><path d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/><path id="gauge-fill" d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="#0a84ff" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke 1s"/></svg><div class="gauge-center-val"><div class="gcv-num" id="gauge-val" style="color:#0a84ff;font-size:1.5rem">-</div><div class="gcv-unit">ppm</div></div></div>
+    <div class="gauge-ticks-row">
+      <div class="g-tick"><div class="g-tick-dot" style="background:#30d158"></div><div class="g-tick-val" style="color:#30d158;font-size:8px">400</div></div>
+      <div class="g-tick"><div class="g-tick-dot" style="background:#ffd60a"></div><div class="g-tick-val" style="color:#ffd60a;font-size:8px">800</div></div>
+      <div class="g-tick"><div class="g-tick-dot" style="background:#ff9f0a"></div><div class="g-tick-val" style="color:#ff9f0a;font-size:8px">1200</div></div>
+      <div class="g-tick"><div class="g-tick-dot" style="background:#ff453a"></div><div class="g-tick-val" style="color:#ff453a;font-size:8px">1500</div></div>
+    </div>
+  </div>
+  <div class="gx-card stat-side" style="flex:1.2">
+    <div class="stat-side-title"><%= tr.stat_title %></div>
+    <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label"><%= tr.stat_peak_time %></span><span class="stat-row-badge badge-warn" id="stat-peak-badge">-</span></div><div class="stat-row-val" id="stat-peak-time" style="font-size:1rem">-</div><div class="stat-row-sub" id="stat-peak-val">-</div></div>
+    <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label"><%= tr.stat_trend %></span><span class="stat-row-badge badge-flat" id="stat-trend-badge"><%= tr.stat_stable %></span></div><div class="stat-row-val" id="stat-trend" style="font-size:1rem">+0</div><div class="stat-row-sub"><%= tr.stat_last10 %></div></div>
+    <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label"><%= tr.stat_count %></span></div><div class="stat-row-val" id="stat-count" style="font-size:1rem">-</div><div class="stat-row-sub"><%= tr.stat_today %></div></div>
+  </div>
+</div>
+
+<!-- Speed, Accel, Ventilation, Time distribution - 2x2 grid -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#bf5af2;font-size:9px"><%= tr.chart_speed_title %></div></div></div><div class="chart-h-md" style="position:relative;overflow:visible;height:140px"><div id="speedChartWrap" style="position:relative;width:100%"></div></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#ff9f0a;font-size:9px"><%= tr.chart_accel_title %></div></div></div><div class="chart-h-md" style="position:relative;overflow:visible;height:140px"><div id="accelChartWrap" style="position:relative;width:100%"></div></div></div>
+  
+  <!-- Szellőzési állapot -->
+  <div class="gx-card chart-wrap">
+    <div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#5ac8fa;font-size:9px"><%= tr.vent_status %></div></div></div>
+    <div style="padding:4px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div><div id="vent-status-text" style="font-size:11px;font-weight:700;color:var(--t1)">-</div><div id="vent-status-sub" style="font-size:9px;color:var(--t3);margin-top:2px">-</div></div>
+        <div id="vent-icon" style="font-size:18px">-</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;padding:4px 8px;margin-bottom:6px">
+        <div style="font-size:8px;color:var(--t3)">d1</div>
+        <div id="vent-d1" style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700">-</div>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden">
+        <div id="vent-bar" style="height:100%;width:50%;background:#5ac8fa;border-radius:2px;transition:width .8s,background .8s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:7px;color:var(--t3);margin-top:2px"><span>Romlik</span><span>Stabil</span><span>Javul</span></div>
+    </div>
+  </div>
+
+  <!-- Időbeli eloszlás -->
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#30d158;font-size:9px"><%= tr.chart_time_title %></div></div></div><div style="height:140px"><canvas id="timeBarChart"></canvas></div></div>
+</div>
+
+<!-- Levegőminőség + Eseménynapló + Szellőztetési napló -->
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+  <div class="gx-card quality-bar-wrap">
+    <div class="quality-bar-title"><%= tr.quality_title %></div>
+    <div class="quality-levels">
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#30d158"></div><%= tr.quality_excellent %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-good" style="width:0%;background:linear-gradient(90deg,#30d158,#0fa02e)"></div></div><div class="ql-pct" id="ql-good-pct" style="color:#30d158">-</div><div class="ql-time" id="ql-good-t">-</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ffd60a"></div><%= tr.quality_good %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-ok" style="width:0%;background:linear-gradient(90deg,#ffd60a,#e5b800)"></div></div><div class="ql-pct" id="ql-ok-pct" style="color:#ffd60a">-</div><div class="ql-time" id="ql-ok-t">-</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff9f0a"></div><%= tr.quality_warning %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-warn" style="width:0%;background:linear-gradient(90deg,#ff9f0a,#e08000)"></div></div><div class="ql-pct" id="ql-warn-pct" style="color:#ff9f0a">-</div><div class="ql-time" id="ql-warn-t">-</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff453a"></div><%= tr.quality_critical %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-crit" style="width:0%;background:linear-gradient(90deg,#ff453a,#cc1a10)"></div></div><div class="ql-pct" id="ql-crit-pct" style="color:#ff453a">-</div><div class="ql-time" id="ql-crit-t">-</div></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="gx-card alert-panel">
+      <div class="alert-panel-title"><%= tr.alert_title %> <span class="alert-count" id="alert-count">0</span></div>
+      <div id="alert-list"><div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i><%= tr.alert_none %></div></div>
+    </div>
+    <div class="gx-card" style="padding:10px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2)"><%= tr.vent_log %></div>
+        <span style="font-size:8px;color:var(--t3)" id="vent-log-count">0 esemény</span>
+      </div>
+      <div id="vent-log-list" style="display:flex;flex-direction:column;gap:4px;max-height:80px;overflow-y:auto">
+        <div style="font-size:9px;color:var(--t3);text-align:center;padding:6px 0"><i class="fas fa-wind" style="margin-right:4px;opacity:.4"></i>'+(GX_TR.vent_no_record||'No ventilation recorded yet')+'</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .gx-page -->
+
+<script src="/static/js/theme.js?v=100"></script>
+<script>
+var GX_TR = <%- JSON.stringify(tr) %>;
+var GX_LANG = '<%= lang %>';
+var isLiveMode = <%= start_live ? 'true' : 'false' %>;
+
+// Lang menu
+function toggleLangMenu(){var m=document.getElementById('lang-menu');m.style.display=m.style.display==='none'?'block':'none';}
+document.addEventListener('click',function(e){var p=document.getElementById('lang-picker');if(p&&!p.contains(e.target)){var m=document.getElementById('lang-menu');if(m)m.style.display='none';}});
+
+// Helpers
+function isoToUnix(s){if(!s)return null;var d=new Date(s.replace(' ','T')+'Z');return isNaN(d)?null:d.getTime()/1000;}
+function co2Col(n){if(n<=800)return{hex:'#30d158'};if(n<=1000)return{hex:'#ffd60a'};if(n<=1500)return{hex:'#ff9f0a'};return{hex:'#ff453a'};}
+function mw(){return Math.max(window.innerWidth-20,100);}
+function mwHalf(){return Math.max(Math.floor((window.innerWidth-28)/2),80);}
+
+// uPlot config
+var uXAxis={stroke:'rgba(255,255,255,0.30)',ticks:{stroke:'rgba(255,255,255,0.08)',width:1,size:4},grid:{show:false},font:"9px 'JetBrains Mono',monospace",values:function(u,vals){return vals.map(function(v){var d=new Date(v*1000);return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');});}};
+var uYAxis={stroke:'rgba(255,255,255,0.30)',ticks:{stroke:'rgba(255,255,255,0.08)',width:1,size:4},grid:{stroke:'rgba(255,255,255,0.06)',width:1},font:"9px 'JetBrains Mono',monospace",size:44};
+
+// Min/Max plugin
+function makeMinMaxPlugin(){
+  return{hooks:{draw:[function(u){
+    var ctx=u.ctx,bbox=u.bbox;
+    var vals=(u.data[1]||[]).filter(function(v){return v!=null&&!isNaN(v);});
+    if(vals.length<2)return;
+    var maxV=Math.max.apply(null,vals),minV=Math.min.apply(null,vals);
+    if(maxV===minV)return;
+    var yMax=Math.round(u.valToPos(maxV,'y',true)),yMin=Math.round(u.valToPos(minV,'y',true));
+    var x0=bbox.left,x1=bbox.left+bbox.width;
+    ctx.save();
+    ctx.setLineDash([5,4]);ctx.lineWidth=1.5;
+    ctx.strokeStyle='rgba(255,69,58,0.75)';ctx.beginPath();ctx.moveTo(x0,yMax);ctx.lineTo(x1,yMax);ctx.stroke();
+    ctx.strokeStyle='rgba(48,209,88,0.75)';ctx.beginPath();ctx.moveTo(x0,yMin);ctx.lineTo(x1,yMin);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font="bold 10px 'JetBrains Mono',monospace";ctx.shadowColor='rgba(0,0,0,0.95)';ctx.shadowBlur=5;ctx.textAlign='left';
+    ctx.fillStyle='rgba(255,69,58,0.95)';ctx.textBaseline='bottom';ctx.fillText('MAX '+Math.round(maxV),x0+4,Math.max(yMax-3,12));
+    ctx.fillStyle='rgba(48,209,88,0.95)';ctx.textBaseline='top';ctx.fillText('MIN '+Math.round(minV),x0+4,yMin+3);
+    ctx.restore();
+  }]}};
+}
+
+// Tooltip plugin
+function makeTooltip(series){
+  var tt=document.createElement('div');
+  tt.style.cssText='position:absolute;pointer-events:none;background:rgba(13,17,25,0.92);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 10px;font-size:10px;color:#fff;font-family:JetBrains Mono,monospace;z-index:100;display:none;min-width:110px';
+  return{hooks:{init:[function(u){u.over.appendChild(tt);}],setCursor:[function(u){
+    var idx=u.cursor.idx;if(idx==null){tt.style.display='none';return;}
+    var t=u.data[0][idx];if(t==null){tt.style.display='none';return;}
+    var d=new Date(t*1000),timeStr=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    var html='<div style="color:rgba(255,255,255,0.5);margin-bottom:4px;font-size:9px">'+timeStr+'</div>';
+    series.forEach(function(s,i){
+      var v=u.data[i+1]?u.data[i+1][idx]:null;if(v==null)return;
+      html+='<div style="display:flex;align-items:center;gap:5px;margin-bottom:1px"><span style="width:7px;height:7px;border-radius:50%;background:'+s.color+';flex-shrink:0"></span><span style="color:rgba(255,255,255,0.7)">'+s.label+'</span><span style="margin-left:auto;font-weight:700">'+Math.round(v*10)/10+' '+s.unit+'</span></div>';
+    });
+    tt.innerHTML=html;
+    var cx=u.cursor.left,cy=u.cursor.top,tw=tt.offsetWidth||110,th=tt.offsetHeight||50,uw=u.over.offsetWidth,uh=u.over.offsetHeight;
+    tt.style.left=(cx>uw-tw-10?cx-tw-8:cx+8)+'px';tt.style.top=(cy>uh-th-10?cy-th-8:cy+8)+'px';tt.style.display='block';
+  }]}};
+}
+
+// uPlot instances
+window.co2UPlot=null;window.speedUPlot=null;window.accelUPlot=null;
+window._uplotReady=false;window._pendingZoom=null;
+window._fullChartArrays=null;window._fullTimestamps=null;
+
+function initUPlots(){
+  var w=mw(), wh=mwHalf();
+  var trendLbl=(GX_TR&&GX_TR.toggle_trend)||'Trend';
+  var rawLbl=(GX_TR&&GX_TR.toggle_raw)||'Nyers';
+  var speedLbl=(GX_TR&&GX_TR.chart_speed_title)||'Sebesség';
+  var accelLbl=(GX_TR&&GX_TR.chart_accel_title)||'Gyorsulás';
+
+  window.co2UPlot=new uPlot({
+    width:w,height:240,padding:[16,4,0,0],
+    cursor:{show:true},legend:{show:false},
+    plugins:[makeMinMaxPlugin(),makeTooltip([{label:trendLbl,color:'#0a84ff',unit:'ppm'},{label:rawLbl,color:'rgba(10,132,255,0.7)',unit:'ppm'}])],
+    series:[{},{label:trendLbl,stroke:'#0a84ff',fill:'rgba(10,132,255,0.07)',width:2.5,points:{show:false},spanGaps:true},{label:rawLbl,stroke:'rgba(10,132,255,0.38)',fill:'transparent',width:1,points:{show:false},spanGaps:true}],
+    axes:[uXAxis,uYAxis],scales:{x:{time:true},y:{auto:true,range:function(u,mn,mx){return[mn-15,mx+20];}}}
+  },[[],[],[]],document.getElementById('co2ChartWrap'));
+
+  window.speedUPlot=new uPlot({
+    width:wh,height:140,padding:[4,4,0,0],
+    cursor:{show:true},legend:{show:false},
+    plugins:[makeMinMaxPlugin(),makeTooltip([{label:speedLbl,color:'#bf5af2',unit:'ppm/p'}])],
+    series:[{},{label:speedLbl,stroke:'#bf5af2',fill:'rgba(191,90,242,0.07)',width:1.5,points:{show:false},spanGaps:true}],
+    axes:[uXAxis,uYAxis],scales:{x:{time:true},y:{auto:true}}
+  },[[],[]],document.getElementById('speedChartWrap'));
+
+  window.accelUPlot=new uPlot({
+    width:wh,height:140,padding:[4,4,0,0],
+    cursor:{show:true},legend:{show:false},
+    plugins:[makeMinMaxPlugin(),makeTooltip([{label:accelLbl,color:'#ff9f0a',unit:'ppm/p²'}])],
+    series:[{},{label:accelLbl,stroke:'#ff9f0a',fill:'rgba(255,159,10,0.07)',width:1.5,points:{show:false},spanGaps:true}],
+    axes:[uXAxis,uYAxis],scales:{x:{time:true},y:{auto:true}}
+  },[[],[]],document.getElementById('accelChartWrap'));
+
+  window._uplotReady=true;
+  if(window._pendingZoom){var z=window._pendingZoom;window._pendingZoom=null;window.applyZoom(z);}
+
+  // Resize on orientation/window change
+  var _rt;
+  window.addEventListener('resize',function(){
+    clearTimeout(_rt);_rt=setTimeout(function(){
+      var nw=mw(),nwh=mwHalf();
+      if(window.co2UPlot)window.co2UPlot.setSize({width:nw,height:240});
+      if(window.speedUPlot)window.speedUPlot.setSize({width:nwh,height:140});
+      if(window.accelUPlot)window.accelUPlot.setSize({width:nwh,height:140});
+    },200);
+  });
+}
+
+// Series toggle
+function toggleSeries(idx,btnId){
+  if(!window.co2UPlot)return;
+  var btn=document.getElementById(btnId);
+  var isActive=btn&&btn.classList.contains('active');
+  window.co2UPlot.setSeries(idx,{show:!isActive});
+  if(btn){if(isActive)btn.classList.remove('active');else btn.classList.add('active');}
+}
+
+// applyZoom
+var activeZoom='all';
+window.applyZoom=function(z){
+  var src=window._fullChartArrays;
+  if(!src||!src.ts||!src.ts.length)return;
+  if(!window._uplotReady){window._pendingZoom=z;return;}
+  activeZoom=z;
+  var startIdx=0;
+  if(z!=='all'&&src.ts.length>0){
+    var mins=parseInt(z),lastTs=src.ts[src.ts.length-1],cutoff=lastTs-mins*60;
+    for(var i=0;i<src.ts.length;i++){if(src.ts[i]>=cutoff){startIdx=i;break;}}
+  }
+  var ts=src.ts.slice(startIdx),smooth=src.smooth.slice(startIdx),raw=src.raw.slice(startIdx);
+  var speeds=src.speeds.slice(startIdx),accels=src.accels.slice(startIdx);
+  window.co2UPlot.setData([ts,smooth,raw],true);
+  window.speedUPlot.setData([ts,speeds],true);
+  window.accelUPlot.setData([ts,accels],true);
+};
+
+// Zoom buttons
+document.querySelectorAll('[data-zoom]').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('[data-zoom]').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    window.applyZoom(b.dataset.zoom);
+  });
+});
+
+// Gauge
+function updateGauge(ppm){
+  var f=document.getElementById('gauge-fill'),v=document.getElementById('gauge-val');
+  if(!f||!v)return;
+  var n=parseInt(ppm);if(isNaN(n)||n<=0){v.textContent='—';return;}
+  f.style.strokeDashoffset=(173-173*Math.min(Math.max((n-400)/1600,0),1)).toFixed(2);
+  var c=co2Col(n);f.style.stroke=c.hex;v.textContent=n;v.style.color=c.hex;
+}
+
+// Status
+function setOnline(v,msg){
+  var btn=document.getElementById('live-btn');
+  if(!btn)return;
+  if(v){btn.className='active';btn.innerHTML='<span class="dot"></span>';}
+  else{btn.className='offline-mode';btn.innerHTML='<span class="dot"></span>';}
+  var sb=document.getElementById('air-status-box');
+  if(sb&&msg){sb.textContent=msg;}
+}
+
+// Quality bars
+function setQL(id,mins,total){
+  var pct=total>0?Math.round(mins/total*100):0;
+  var bar=document.getElementById('ql-'+id),pctEl=document.getElementById('ql-'+id+'-pct'),timeEl=document.getElementById('ql-'+id+'-t');
+  if(bar)bar.style.width=pct+'%';
+  if(pctEl)pctEl.textContent=pct+'%';
+  if(timeEl){var h=Math.floor(mins/60),m=mins%60;timeEl.textContent=h>0?h+' ó '+(m>0?m+' p':''):m+' p';}
+}
+
+// Alert
+var alertHistory=[];
+function addAlert(ppm){
+  var threshold=1500;
+  var list=document.getElementById('alert-list'),cnt=document.getElementById('alert-count');
+  if(!list)return;
+  var now=new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+  if(ppm>threshold){
+    var existing=alertHistory.find(function(a){return a.type==='danger'&&(Date.now()-a.ts)<300000;});
+    if(!existing){alertHistory.unshift({type:'danger',ts:Date.now(),time:now,ppm:ppm});if(alertHistory.length>5)alertHistory.pop();}
+  }
+  if(!alertHistory.length){list.innerHTML='<div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>'+(GX_TR.alert_none||'Nincs aktív riasztás')+'</div>';if(cnt)cnt.textContent='0';return;}
+  if(cnt)cnt.textContent=alertHistory.length;
+  list.innerHTML=alertHistory.map(function(a){
+    return '<div class="alert-item '+a.type+'"><span class="alert-icon">🚨</span><div class="alert-body"><div class="alert-title">'+Math.round(a.ppm)+' ppm</div></div><span class="alert-time">'+a.time+'</span></div>';
+  }).join('');
+}
+
+// Vent log
+var _ventLog=[];
+function renderVentLog(){
+  var list=document.getElementById('vent-log-list'),cnt=document.getElementById('vent-log-count');
+  if(!list)return;
+  if(cnt)cnt.textContent=_ventLog.length+' '+(GX_TR.vent_events||'events');
+  if(!_ventLog.length){list.innerHTML='<div style="font-size:9px;color:var(--t3);text-align:center;padding:6px 0"><i class="fas fa-wind" style="margin-right:4px;opacity:.4"></i>'+(GX_TR.vent_no_record||'No ventilation recorded yet')+'</div>';return;}
+  list.innerHTML=_ventLog.map(function(e){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:rgba(48,209,88,0.06);border:1px solid rgba(48,209,88,0.15);border-radius:6px"><div style="flex:1"><div style="font-size:9px;font-weight:600;color:var(--t1)">'+e.start+' – '+e.end+'</div><div style="font-size:8px;color:var(--t3)">'+e.from+' → '+e.to+' ppm</div></div><div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;font-weight:700;color:#30d158">-'+e.drop+'</div></div>';
+  }).join('');
+}
+
+// Chart.js timeBar
+Chart.defaults.color='rgba(255,255,255,0.35)';
+Chart.defaults.font.family="'Geist',sans-serif";
+var NOGRID={display:false},NB={display:false},TK={color:'rgba(255,255,255,0.35)',font:{size:9}};
+window.timeBarChart=new Chart(document.getElementById('timeBarChart').getContext('2d'),{
+  type:'bar',
+  data:{labels:['Kiváló','Jó','Figyelem','Kritikus'],
+    datasets:[{data:[],backgroundColor:['rgba(48,209,88,0.75)','rgba(255,214,10,0.75)','rgba(255,159,10,0.75)','rgba(255,69,58,0.75)'],borderColor:['#30d158','#ffd60a','#ff9f0a','#ff453a'],borderWidth:1,borderRadius:3,barThickness:14}]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){var m=Math.round(ctx.parsed.x);if(m<=0)return' 0p';if(m<60)return' '+m+'p';return' '+Math.floor(m/60)+'ó'+(m%60>0?' '+m%60+'p':'');}}}},
+    scales:{x:{grid:NOGRID,border:NB,ticks:{...TK,maxTicksLimit:4}},y:{grid:{display:false},border:NB,ticks:{color:'rgba(255,255,255,0.6)',font:{size:9,weight:'600'}}}}}
+});
+
+// updateUI
+function updateUI(p){
+  if(!p)return;
+  // KPI
+  var kpi=p.kpi||{};
+  var cur=p.current_co2!=null?p.current_co2:kpi.current;
+  if(cur!=null){
+    var c=co2Col(cur);
+    var el=document.getElementById('kpi-current');if(el){el.querySelector('b').textContent=Math.round(cur);el.querySelector('b').style.color=c.hex;}
+    updateGauge(cur);
+  }
+  if(kpi.avg!=null){var a=document.getElementById('kpi-avg');if(a){a.querySelector('b').textContent=Math.round(kpi.avg);a.querySelector('b').style.color='#bf5af2';}}
+  if(kpi.max!=null){var x=document.getElementById('kpi-max');if(x){x.querySelector('b').textContent=Math.round(kpi.max);x.querySelector('b').style.color='#ff453a';}}
+  if(kpi.min!=null){var n=document.getElementById('kpi-min');if(n){n.querySelector('b').textContent=Math.round(kpi.min);n.querySelector('b').style.color='#30d158';}}
+
+  // Status box
+  if(p.air_status_key&&GX_TR[p.air_status_key]){
+    var sb=document.getElementById('air-status-box');
+    if(sb){
+      var map={status_good:'status-good',status_warning:'status-warning',status_danger:'status-danger',status_nodata:'status-neutral'};
+      sb.className='air-status-box '+(map[p.air_status_key]||'status-neutral');
+      sb.textContent=GX_TR[p.air_status_key];
+    }
+  }
+
+  // Frissítés ideje
+  if(p.chartData&&p.chartData.length){
+    var last=p.chartData[p.chartData.length-1];
+    var lu=document.getElementById('last-update');if(lu&&last.x){var dt=new Date(last.x.replace(' ','T')+'Z');lu.textContent=isNaN(dt)?last.x.substring(11,16):dt.toLocaleTimeString(GX_LANG,{hour:'2-digit',minute:'2-digit'});}
+  }
+
+  // Chart adatok
+  if(p.chartData&&p.chartData.length){
+    var src=p.chartData;
+    // Max 4000 pont mobilon
+    if(src.length>4000){var step=Math.ceil(src.length/4000);var th=[];for(var i=0;i<src.length;i+=step)th.push(src[i]);src=th;}
+    var ts=src.map(function(d){return isoToUnix(d.x);});
+    var smooth=src.map(function(d){return d.y_smooth!=null?+d.y_smooth:(d.y_raw!=null?+d.y_raw:null);});
+    var raw=src.map(function(d){return d.y_raw!=null?+d.y_raw:null;});
+    var speeds=src.map(function(d){return d.speed!=null?+d.speed:null;});
+    var accels=src.map(function(d){return d.accel!=null?+d.accel:null;});
+    window._fullChartArrays={ts:ts,smooth:smooth,raw:raw,speeds:speeds,accels:accels};
+    window._fullTimestamps=p.chartData.map(function(d){return d.x||'';});
+    var activeBtn=document.querySelector('.ch-opt.active');
+    window.applyZoom(activeBtn?activeBtn.dataset.zoom:'all');
+  }
+
+  // Time stats
+  if(p.timeStats){window.timeBarChart.data.datasets[0].data=p.timeStats;window.timeBarChart.update('none');}
+
+  // afterUpdate logika
+  afterUpdate(p);
+}
+
+function afterUpdate(p){
+  if(!p)return;
+  var cur=parseInt(p.kpi&&p.kpi.current);
+  // Trend
+  if(p.chartData&&p.chartData.length>=2){
+    var last=p.chartData[p.chartData.length-1],prev=p.chartData[Math.max(0,p.chartData.length-10)];
+    var diff=Math.round((last.y_smooth||last.y_raw)-(prev.y_smooth||prev.y_raw));
+    var tb=document.getElementById('kpi-trend');
+    if(tb){tb.textContent=(diff>0?'+':'')+diff+' ppm';tb.className='kpi-trend '+(diff>20?'up':diff<-20?'down':'flat');}
+    var st=document.getElementById('stat-trend'),sb2=document.getElementById('stat-trend-badge');
+    if(st)st.textContent=(diff>0?'+':'')+diff;
+    if(sb2){sb2.textContent=diff>20?(GX_TR.stat_rising||'Emelkedő'):diff<-20?(GX_TR.stat_falling||'Csökkenő'):(GX_TR.stat_stable||'Stabil');sb2.className='stat-row-badge '+(diff>20?'badge-up':diff<-20?'badge-down':'badge-flat');}
+  }
+  // Mérésszám
+  var cnt2=p.chartData?p.chartData.length:0;
+  var sc=document.getElementById('stat-count');if(sc)sc.textContent=cnt2.toLocaleString('hu-HU');
+  var dc=document.getElementById('data-count');if(dc)dc.textContent=cnt2.toLocaleString('hu-HU');
+  var cp=document.getElementById('count-pill');if(cp)cp.style.display=cnt2?'flex':'none';
+  // Quality bars
+  if(p.timeStats){var ts2=p.timeStats,tot=(ts2[0]||0)+(ts2[1]||0)+(ts2[2]||0)+(ts2[3]||0);setQL('good',ts2[0]||0,tot);setQL('ok',ts2[1]||0,tot);setQL('warn',ts2[2]||0,tot);setQL('crit',ts2[3]||0,tot);}
+  // Peak time
+  if(p.chartData&&p.kpi&&p.kpi.max&&window._fullTimestamps){
+    for(var i=p.chartData.length-1;i>=0;i--){
+      if(Math.round(p.chartData[i].y_raw)==p.kpi.max||Math.round(p.chartData[i].y_smooth)==p.kpi.max){
+        var lbl=window._fullTimestamps[i];
+        if(lbl){var dt2=new Date(lbl.replace(' ','T')+'Z');lbl=isNaN(dt2)?lbl.substring(11,16):dt2.toLocaleTimeString(GX_LANG,{hour:'2-digit',minute:'2-digit'});}
+        var pt=document.getElementById('stat-peak-time'),pv=document.getElementById('stat-peak-val'),pb=document.getElementById('stat-peak-badge');
+        if(pt&&lbl)pt.textContent=lbl;if(pv)pv.textContent=p.kpi.max+' ppm';
+        if(pb){pb.className='stat-row-badge '+(p.kpi.max>1500?'badge-up':p.kpi.max>1000?'badge-warn':'badge-flat');pb.textContent=p.kpi.max>1500?(GX_TR.stat_critical||'Kritikus'):p.kpi.max>1000?(GX_TR.stat_warning||'Figyelem'):(GX_TR.stat_normal||'Normális');}
+        break;
+      }
+    }
+  }
+  // Szellőzési mutató
+  if(p.chartData&&p.chartData.length>=10){
+    var cd=p.chartData,n=cd.length;
+    var recent=cd.slice(n-5).map(function(d){return d.y_smooth||d.y_raw||0;});
+    var older=cd.slice(n-10,n-5).map(function(d){return d.y_smooth||d.y_raw||0;});
+    var avgR=recent.reduce(function(a,b){return a+b;},0)/recent.length;
+    var avgO=older.reduce(function(a,b){return a+b;},0)/older.length;
+    var d1=Math.round((avgR-avgO)*10)/10;
+    var oldest=cd.slice(n-15,n-10).map(function(d){return d.y_smooth||d.y_raw||0;});
+    var avgOldest=oldest.length?oldest.reduce(function(a,b){return a+b;},0)/oldest.length:avgO;
+    var d2=Math.round((d1-(avgO-avgOldest))*10)/10;
+    var vt,vs,vi,vc,vb;
+    if(d1<-3&&d2<-0.5){vt=GX_TR.vent_accel_t;vs=GX_TR.vent_accel_s;vi='🌬️';vc='#30d158';vb=95;}
+    else if(d1<-3){vt=GX_TR.vent_steady_t;vs=GX_TR.vent_steady_s;vi='💨';vc='#30d158';vb=82;}
+    else if(d1<-1&&d2>0.5){vt=GX_TR.vent_slow_t;vs=GX_TR.vent_slow_s;vi='💨';vc='#5ac8fa';vb=68;}
+    else if(d1<-1){vt=GX_TR.vent_mild_t;vs=GX_TR.vent_mild_s;vi='🍃';vc='#5ac8fa';vb=62;}
+    else if(d1>=-1&&d1<=1){vt=GX_TR.vent_stable_t;vs=GX_TR.vent_stable_s;vi='✅';vc='#ffd60a';vb=50;}
+    else if(d1>1&&d1<=3&&d2<-0.5){vt=GX_TR.vent_degrade_slow_t;vs=GX_TR.vent_degrade_slow_s;vi='⚠️';vc='#ff9f0a';vb=35;}
+    else if(d1>1&&d1<=3){vt=GX_TR.vent_degrade_mild_t;vs=GX_TR.vent_degrade_mild_s;vi='⚠️';vc='#ff9f0a';vb=30;}
+    else if(d1>3&&d2>0.5){vt=GX_TR.vent_degrade_fast_t;vs=GX_TR.vent_degrade_fast_s;vi='🚨';vc='#ff453a';vb=5;}
+    else{vt=GX_TR.vent_rapid_t;vs=GX_TR.vent_rapid_s;vi='🚨';vc='#ff453a';vb=12;}
+    var vtEl=document.getElementById('vent-status-text');if(vtEl){vtEl.textContent=vt;vtEl.style.color=vc;}
+    var vsEl=document.getElementById('vent-status-sub');if(vsEl)vsEl.textContent=vs;
+    var viEl=document.getElementById('vent-icon');if(viEl)viEl.textContent=vi;
+    var vd1El=document.getElementById('vent-d1');if(vd1El){vd1El.textContent=(d1>0?'+':'')+d1+' ppm/p';vd1El.style.color=d1>1?'#ff453a':d1<-1?'#30d158':'#ffd60a';}
+    var vbarEl=document.getElementById('vent-bar');if(vbarEl){vbarEl.style.width=vb+'%';vbarEl.style.background=vc;}
+    // Szellőztetési napló
+    _ventLog=[];
+    var WIN=15,inVent=false,ventStartIdx=0;
+    function gv(d){return parseFloat(d.y_smooth||d.y_raw||0);}
+    for(var vi2=WIN;vi2<cd.length;vi2++){
+      var vNow=gv(cd[vi2]),vBack=gv(cd[vi2-WIN]),vSlope=vNow-vBack;
+      if(!inVent&&vSlope<-15){inVent=true;ventStartIdx=vi2-WIN;}
+      else if(inVent&&vSlope>=0){
+        inVent=false;
+        var vDrop=Math.round(gv(cd[ventStartIdx])-vNow);
+        if(vDrop>20)_ventLog.push({start:(cd[ventStartIdx].x||'').substring(11,16),end:(cd[vi2].x||'').substring(11,16),from:Math.round(gv(cd[ventStartIdx])),to:Math.round(vNow),drop:vDrop});
+      }
+    }
+    _ventLog.reverse();if(_ventLog.length>8)_ventLog=_ventLog.slice(0,8);
+    renderVentLog();
+  }
+  addAlert(cur);
+}
+
+// Socket
+var socket=io();
+socket.on('update_data',function(p){if(isLiveMode)updateUI(p);});
+socket.on('connect',function(){
+  var btn=document.getElementById('live-btn');
+  if(btn&&isLiveMode)btn.className='active';
+  if(!isLiveMode)loadDate(document.getElementById('date-selector').value);
+});
+socket.on('disconnect',function(){var btn=document.getElementById('live-btn');if(btn)btn.className='offline-mode';});
+
+// Load history
+function loadDate(date){
+  fetch('/api/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:date})})
+    .then(function(r){return r.json();}).then(function(d){if(!d.error)updateUI(d);}).catch(function(e){console.error(e);});
+}
+document.getElementById('date-selector').addEventListener('change',function(){loadDate(this.value);});
+
+// PDF
+document.getElementById('pdf-btn').addEventListener('click',function(){
+  window.open('/report?date='+document.getElementById('date-selector').value,'_blank','width=900,height=700');
+});
+
+// Preloader
+window.addEventListener('load',function(){
+  requestAnimationFrame(function(){
+    initUPlots();
+    setTimeout(function(){
+      var pl=document.getElementById('preloader');if(pl)pl.classList.add('gone');
+      if(!isLiveMode)loadDate(document.getElementById('date-selector').value);
+    },300);
+  });
+});
+</script>
+</body>
+</html>

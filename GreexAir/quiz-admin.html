@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GrexAir Kvíz · Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg0: #02040a;
+  --bg1: #060912;
+  --g1: #00d4aa;
+  --g2: #0a84ff;
+  --g3: #bf5af2;
+  --amber: #ff9f0a;
+  --red: #ff453a;
+  --green: #30d158;
+  --text: rgba(255,255,255,0.93);
+  --text2: rgba(255,255,255,0.55);
+  --text3: rgba(255,255,255,0.28);
+  --glass: rgba(255,255,255,0.05);
+  --glass-b: rgba(255,255,255,0.09);
+  --blur: blur(32px) saturate(160%);
+  --r: 18px;
+  --rs: 12px;
+  --rp: 999px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Inter', -apple-system, 'SF Pro Display', sans-serif;
+  background: var(--bg0); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── AURORA ── */
+.aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.ao { position: absolute; border-radius: 50%; filter: blur(100px); }
+.ao1 { width: 700px; height: 700px; top: -300px; left: -200px; background: radial-gradient(circle, rgba(0,212,170,0.14) 0%, transparent 60%); }
+.ao2 { width: 600px; height: 600px; top: -200px; right: -150px; background: radial-gradient(circle, rgba(10,132,255,0.10) 0%, transparent 60%); }
+.ao3 { width: 500px; height: 500px; bottom: -150px; left: 35%; background: radial-gradient(circle, rgba(191,90,242,0.08) 0%, transparent 60%); }
+
+/* ── PRELOADER ── */
+#preloader {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg0);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  transition: opacity 0.5s, visibility 0.5s;
+}
+#preloader.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.pre-ring {
+  width: 80px; height: 80px; border-radius: 22px;
+  background: linear-gradient(135deg, var(--g1), var(--g2));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 50px rgba(0,212,170,0.30);
+  animation: prePulse 2.5s ease-in-out infinite;
+}
+@keyframes prePulse { 0%,100%{box-shadow:0 0 30px rgba(0,212,170,0.20)} 50%{box-shadow:0 0 60px rgba(0,212,170,0.40)} }
+.pre-ring img { width: 56px; height: 56px; object-fit: contain; border-radius: 14px; }
+.pre-name { font-size: 24px; font-weight: 800; background: linear-gradient(135deg, var(--g1), var(--g2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.pre-badge { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); }
+.pre-clock { font-size: 14px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.pre-bar { width: 100px; height: 2px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+.pre-fill { height: 100%; background: linear-gradient(90deg, var(--g1), var(--g2)); animation: preBar 1.4s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes preBar { from{width:0} to{width:100%} }
+
+/* ── LAYOUT ── */
+#app { display: none; flex-direction: column; height: 100vh; position: relative; z-index: 1; }
+#app.on { display: flex; }
+
+/* ── TOPBAR ── */
+.topbar {
+  height: 52px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+  background: rgba(6,9,18,0.85);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(20px);
+}
+.tb-left { display: flex; align-items: center; gap: 10px; }
+.tb-logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--g1), var(--g2)); display: flex; align-items: center; justify-content: center; }
+.tb-logo img { width: 20px; height: 20px; object-fit: contain; }
+.tb-name { font-size: 14px; font-weight: 700; background: linear-gradient(90deg, var(--g1), var(--g2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.tb-chip { padding: 3px 10px; border-radius: var(--rp); background: rgba(0,212,170,0.10); border: 1px solid rgba(0,212,170,0.20); font-size: 10px; font-weight: 700; color: var(--g1); letter-spacing: 0.8px; }
+.tb-right { display: flex; align-items: center; gap: 10px; }
+.conn { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--rp); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+.conn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); transition: background 0.3s; }
+.conn-dot.live { background: var(--green); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.conn-txt { font-size: 11px; font-weight: 600; color: var(--text2); }
+.tb-clock { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+
+/* ── BODY ── */
+.body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 256px; flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; overflow-y: auto;
+}
+
+.panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  border-radius: var(--r);
+  backdrop-filter: blur(20px);
+  padding: 14px;
+  position: relative; overflow: hidden;
+}
+.panel::after { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.10) 50%,transparent); border-radius:var(--r) var(--r) 0 0; }
+.panel-title { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; }
+
+/* Stats */
+.stats { display: flex; gap: 6px; }
+.stat { flex: 1; text-align: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--rs); padding: 10px 6px; }
+.stat-val { font-size: 22px; font-weight: 800; letter-spacing: -1px; font-family: 'JetBrains Mono', monospace; background: linear-gradient(135deg, var(--g1), var(--g2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.stat-lbl { font-size: 9px; color: var(--text3); font-weight: 600; letter-spacing: 0.5px; margin-top: 2px; text-transform: uppercase; }
+
+/* Participants */
+.part-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.part-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,0.03); font-size: 12px; transition: background 0.2s; }
+.part-item:hover { background: rgba(255,255,255,0.055); }
+.part-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background 0.3s; }
+.part-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.part-name { flex: 1; color: var(--text); font-weight: 500; }
+.part-check { width: 16px; height: 16px; border-radius: 50%; background: rgba(0,212,170,0.15); border: 1px solid rgba(0,212,170,0.30); display: flex; align-items: center; justify-content: center; }
+.no-parts { font-size: 12px; color: var(--text3); text-align: center; padding: 12px 0; }
+
+/* Controls */
+.ctrl { display: flex; flex-direction: column; gap: 7px; }
+
+.btn {
+  width: 100%; padding: 11px 14px;
+  border-radius: var(--rs); border: none;
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+  position: relative; overflow: hidden;
+}
+.btn::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.10) 0%,transparent 50%); pointer-events:none; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.25; cursor: default; }
+
+.btn-start { background: linear-gradient(135deg, var(--g1), #00b890 50%, var(--g2)); color: #000; box-shadow: 0 4px 20px rgba(0,212,170,0.25); }
+.btn-reveal { background: rgba(255,159,10,0.12); border: 1px solid rgba(255,159,10,0.22); color: var(--amber); }
+.btn-next { background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.18); color: var(--g1); }
+.btn-reset { background: rgba(255,69,58,0.08); border: 1px solid rgba(255,69,58,0.18); color: var(--red); }
+
+/* ── MAIN ── */
+.main { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Idle */
+.idle { flex: 1; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.idle-icon { width: 64px; height: 64px; border-radius: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+.idle-icon img { width: 44px; height: 44px; object-fit: contain; opacity: 0.6; }
+.idle-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+.idle-sub { font-size: 13px; color: var(--text2); line-height: 1.6; max-width: 320px; }
+
+/* Question card */
+.q-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  border-radius: var(--r);
+  backdrop-filter: var(--blur);
+  padding: 22px;
+  position: relative; overflow: hidden;
+}
+.q-card::after { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.10) 40%,rgba(255,255,255,0.04) 70%,transparent); border-radius:var(--r) var(--r) 0 0; }
+
+.q-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.q-idx { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text3); }
+.q-votes { font-size: 12px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+
+.q-pbar { height: 2px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-bottom: 16px; overflow: hidden; }
+.q-pbar-fill { height: 100%; background: linear-gradient(90deg, var(--g1), var(--g2)); border-radius: 2px; transition: width 0.4s; }
+
+.q-text { font-size: 20px; font-weight: 700; line-height: 1.4; letter-spacing: -0.3px; margin-bottom: 20px; }
+
+/* Chart bars */
+.chart { display: flex; flex-direction: column; gap: 10px; }
+.chart-row { display: flex; align-items: center; gap: 10px; }
+.chart-key {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+  color: var(--text2); font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s;
+}
+.chart-key.correct { background: var(--g1); border-color: var(--g1); color: #000; }
+
+.chart-wrap { flex: 1; }
+.chart-label { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 5px; line-height: 1.3; }
+
+.chart-track { height: 28px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden; position: relative; }
+.chart-fill {
+  height: 100%; border-radius: 7px;
+  background: linear-gradient(90deg, rgba(0,212,170,0.25), rgba(10,132,255,0.15));
+  transition: width 0.55s cubic-bezier(.4,0,.2,1);
+  position: relative;
+}
+.chart-fill.correct { background: linear-gradient(90deg, rgba(0,212,170,0.45), rgba(0,212,170,0.25)); }
+.chart-pct {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  font-family: 'JetBrains Mono', monospace;
+}
+.chart-cnt { font-size: 12px; color: var(--text3); min-width: 22px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+/* Explain box */
+.explain {
+  display: none; margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(0,212,170,0.06);
+  border: 1px solid rgba(0,212,170,0.18);
+  border-radius: var(--rs);
+  font-size: 13px; color: rgba(0,212,170,0.85); line-height: 1.65;
+  animation: fadeIn 0.4s ease both;
+}
+.explain.show { display: block; }
+.explain-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(0,212,170,0.5); margin-bottom: 6px; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="aurora">
+  <div class="ao ao1"></div>
+  <div class="ao ao2"></div>
+  <div class="ao ao3"></div>
+</div>
+
+<!-- PRELOADER -->
+<div id="preloader">
+  <div class="pre-ring">
+    <img src="/static/logo.png" alt="GrexAir" onerror="this.style.display='none'">
+  </div>
+  <div class="pre-name">GrexAir</div>
+  <div class="pre-badge">Admin Panel</div>
+  <div class="pre-clock" id="pre-clock">--:--:--</div>
+  <div class="pre-bar"><div class="pre-fill"></div></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-left">
+      <div class="tb-logo"><img src="/static/logo.png" alt="" onerror="this.style.display='none'"></div>
+      <span class="tb-name">GrexAir</span>
+      <span class="tb-chip">ADMIN</span>
+    </div>
+    <div class="tb-right">
+      <div class="conn">
+        <div class="conn-dot" id="conn-dot"></div>
+        <span class="conn-txt" id="conn-txt">Kapcsolódás…</span>
+      </div>
+      <span class="tb-clock" id="tb-clock">--:--:--</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <div class="panel">
+        <div class="panel-title">Statisztika</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-val" id="s-users">0</div><div class="stat-lbl">Fő</div></div>
+          <div class="stat"><div class="stat-val" id="s-voted">0</div><div class="stat-lbl">Szavazott</div></div>
+          <div class="stat"><div class="stat-val" id="s-q">—</div><div class="stat-lbl">Kérdés</div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;min-height:0">
+        <div class="panel-title">Résztvevők</div>
+        <div class="part-list" id="part-list">
+          <div class="no-parts">Még senki sem csatlakozott</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Vezérlés</div>
+        <div class="ctrl">
+          <button class="btn btn-start"  id="btn-start"  onclick="adminStart()">▶ Kvíz indítása</button>
+          <button class="btn btn-reveal" id="btn-reveal" onclick="adminReveal()" disabled>Helyes válasz felfedése</button>
+          <button class="btn btn-next"   id="btn-next"   onclick="adminNext()"   disabled>Következő kérdés →</button>
+          <button class="btn btn-reset"  id="btn-reset"  onclick="adminReset()">↺ Visszaállítás</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" id="main">
+      <div class="idle" id="idle">
+        <div class="idle-icon">
+          <img src="/static/logo.png" alt="" onerror="this.style.display='none'">
+        </div>
+        <div class="idle-title">Készenléti állapot</div>
+        <div class="idle-sub">Várj amíg a résztvevők csatlakoznak, majd nyomd meg az Indítás gombot.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const QS = [
+  { q:"Szerinted most ebben a teremben mennyi a CO₂ szint?", opts:["~400 ppm (mint kinn)","~700 ppm","~1200 ppm","2000 ppm felett"], correct:2, explain:"Valószínűleg 800–1400 ppm körül van, függően a szellőztetéstől és a jelenlévők számától." },
+  { q:"Érzed-e ha magas a CO₂ szint a levegőben?", opts:["Igen, szúró szagot érzek","Igen, nehezebben lélegzem","Nem, teljesen érzékelhetetlen","Csak ha nagyon magas"], correct:2, explain:"A CO₂ szagtalan és színtelen. Hatásait az agyban érezzük (fáradtság, koncentrációzavar), de magát a gázt közvetlenül nem érzékeljük." },
+  { q:"Szerinted mennyivel teljesítesz jobban jól szellőztetett levegőben egy dolgozaton?", opts:["Alig változik","Kicsit jobb (~20%)","Jelentősen jobb (~50%)","Közel kétszer olyan jó"], correct:3, explain:"Allen et al. (2016): Zöld+ környezetben (550 ppm) az átlagos kognitív teljesítmény közel kétszerese a hagyományos irodai környezethez képest." },
+  { q:"Szerinted rosszul szellőztetett teremben (1400+ ppm) mennyivel romlik a problémamegoldó képességed?", opts:["Alig változik","~15%-kal romlik","~30%-kal romlik","Több mint a fele elvész"], correct:1, explain:"Magas CO₂-szint (1400+ ppm) esetén körülbelül 17%-os teljesítményromlás mérhető — statisztikailag igazoltan (p = 0,018)." },
+  { q:"Szerinted mennyivel jobb a stratégiai gondolkodás tiszta levegőben?", opts:["Alig változik","Kétszer olyan jó","Négyszer olyan jó","Tízszer olyan jó"], correct:2, explain:"Allen et al. (2016): Zöld+ környezetben 3,77×, magas CO₂ esetén 0,83× — közel négyszeres különbség a stratégiai gondolkodásban." }
+];
+
+let currentQ=-1, revealed=false;
+let votes=QS.map(()=>[0,0,0,0]);
+let parts={}, socket;
+
+/* Clock */
+const tick = () => {
+  const t = new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  ['pre-clock','tb-clock'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=t; });
+};
+tick(); setInterval(tick, 1000);
+
+/* Boot */
+setTimeout(() => {
+  document.getElementById('preloader').classList.add('out');
+  document.getElementById('app').classList.add('on');
+  initSocket();
+}, 1500);
+
+function initSocket() {
+  socket = io();
+  socket.on('connect', () => {
+    document.getElementById('conn-dot').classList.add('live');
+    document.getElementById('conn-txt').textContent = 'Kapcsolódva';
+    socket.emit('quiz_admin_join');
+  });
+  socket.on('disconnect', () => {
+    document.getElementById('conn-dot').classList.remove('live');
+    document.getElementById('conn-txt').textContent = 'Újrakapcsolódás…';
+  });
+  socket.on('quiz_state', s => {
+    currentQ=s.currentQ??-1; revealed=s.revealed??false;
+    votes=s.votes||QS.map(()=>[0,0,0,0]); parts=s.participants||{};
+    refresh();
+  });
+  socket.on('quiz_votes', ({ question, votes:v }) => {
+    votes[question]=v;
+    if (currentQ===question) updateChart();
+    updateStats();
+  });
+  socket.on('quiz_end', () => {
+    document.getElementById('main').innerHTML = `<div class="idle"><div class="idle-title">🎉 Kvíz befejezve!</div><div class="idle-sub">Minden kérdés megválaszolva.<br>Köszönjük a részvételt!</div></div>`;
+  });
+  socket.on('quiz_reset', () => {
+    currentQ=-1; revealed=false; votes=QS.map(()=>[0,0,0,0]); parts={}; refresh();
+  });
+  socket.on('participant_update', p => {
+    parts=p; updateParticipants(); updateStats();
+  });
+}
+
+function adminStart()  { socket.emit('quiz_admin_start'); }
+function adminReveal() { socket.emit('quiz_admin_reveal'); }
+function adminNext()   { socket.emit('quiz_admin_next'); }
+function adminReset()  { if(confirm('Biztosan? Minden szavazat törlődik.')) socket.emit('quiz_admin_reset'); }
+
+function refresh() {
+  updateParticipants(); updateStats(); updateButtons();
+  const main = document.getElementById('main');
+  if (currentQ >= 0) {
+    renderQ(main);
+  } else {
+    main.innerHTML = `<div class="idle"><div class="idle-icon"><img src="/static/logo.png" alt="" onerror="this.style.display='none'"></div><div class="idle-title">Készenléti állapot</div><div class="idle-sub">Várj amíg a résztvevők csatlakoznak, majd nyomd meg az Indítás gombot.</div></div>`;
+  }
+}
+
+function updateButtons() {
+  document.getElementById('btn-start').disabled  = currentQ >= 0;
+  document.getElementById('btn-reveal').disabled = currentQ < 0 || revealed;
+  document.getElementById('btn-next').disabled   = currentQ < 0 || !revealed;
+}
+
+function updateStats() {
+  const names = Object.keys(parts);
+  document.getElementById('s-users').textContent = names.length;
+  const voted = currentQ>=0 ? names.filter(n=>parts[n]?.votes?.[currentQ]>=0).length : 0;
+  document.getElementById('s-voted').textContent = voted;
+  document.getElementById('s-q').textContent = currentQ>=0 ? (currentQ+1)+'/'+QS.length : '—';
+}
+
+function updateParticipants() {
+  const names = Object.keys(parts);
+  const list  = document.getElementById('part-list');
+  if (!names.length) { list.innerHTML='<div class="no-parts">Még senki sem csatlakozott</div>'; return; }
+  list.innerHTML = names.map(sid => {
+    const p = parts[sid];
+    const name = p?.name || sid;
+    const active = p?.active !== false;
+    const voted = currentQ>=0 && p?.votes?.[currentQ]>=0;
+    return `<div class="part-item">
+      <div class="part-dot ${active?'active':''}"></div>
+      <div class="part-name">${name}</div>
+      ${voted ? `<div class="part-check"><svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4 L3 6 L7 2" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderQ(container) {
+  const q = QS[currentQ];
+  const v = votes[currentQ] || [0,0,0,0];
+  const total = v.reduce((a,b)=>a+b,0);
+  container.innerHTML = `
+    <div class="q-card">
+      <div class="q-pbar"><div class="q-pbar-fill" style="width:${(currentQ+1)/QS.length*100}%"></div></div>
+      <div class="q-top">
+        <div class="q-idx">${currentQ+1}. kérdés / ${QS.length}</div>
+        <div class="q-votes" id="q-votes">${total} szavazat</div>
+      </div>
+      <div class="q-text">${q.q}</div>
+      <div class="chart" id="chart"></div>
+      <div class="explain ${revealed?'show':''}" id="explain">
+        <div class="explain-label">Magyarázat</div>
+        ${q.explain}
+      </div>
+    </div>`;
+  updateChart();
+  updateButtons();
+}
+
+function updateChart() {
+  const el = document.getElementById('chart');
+  if (!el || currentQ<0) return;
+  const q = QS[currentQ];
+  const v = votes[currentQ]||[0,0,0,0];
+  const total = v.reduce((a,b)=>a+b,0);
+  const vtxt = document.getElementById('q-votes');
+  if (vtxt) vtxt.textContent = total + ' szavazat';
+  el.innerHTML = q.opts.map((o,i) => {
+    const pct = total>0 ? Math.round(v[i]/total*100) : 0;
+    const cor = revealed && i===q.correct;
+    return `<div class="chart-row">
+      <div class="chart-key ${cor?'correct':''}">${'ABCD'[i]}</div>
+      <div class="chart-wrap">
+        <div class="chart-label">${o}</div>
+        <div class="chart-track">
+          <div class="chart-fill ${cor?'correct':''}" style="width:${pct}%">
+            <div class="chart-pct">${pct}%</div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-cnt">${v[i]}</div>
+    </div>`;
+  }).join('');
+  const ex = document.getElementById('explain');
+  if (ex && revealed) ex.classList.add('show');
+}
+</script>
+</body>
+</html>

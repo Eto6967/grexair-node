@@ -1,0 +1,1209 @@
+<%
+var tr = (typeof tr !== 'undefined' && tr) ? tr : {};
+var lang = (typeof lang !== 'undefined' && lang) ? lang : 'hu';
+function __(key, fallback){ return tr[key] || fallback || key; }
+
+// ── ALAPÉRTELMEZETT MAGYAR FORDÍTÁSOK ────────────────────────
+// Ha a szerver nem adja át a tr objektumot, ezek az értékek lesznek
+if (!tr || Object.keys(tr).length === 0) { tr = {
+  // Navigáció
+  nav_monitor:       'Monitor',
+  nav_upload:        'Feltöltés',
+  connect_btn:       'USB',
+  status_online:     'ONLINE',
+  status_offline:    'OFFLINE',
+  sensor_active:     'Arduino aktív',
+  sensor_nodata:     'Nincs adat',
+
+  // Toast
+  toast_no_measure:  'Ma még nem érkezett mérés. Legutolsó:',
+  toast_load:        'Élő nézethez →',
+
+  // Hero
+  hero_sub:          'Élő adatok · Arduino → Neon PostgreSQL · 3s frissítés',
+  btn_export:        'Export',
+  btn_export_pdf:    'PDF',
+
+  // KPI kártyák
+  kpi_current:       'Jelenlegi',
+  kpi_avg:           'Átlag',
+  kpi_max:           'Maximum',
+  kpi_min:           'Minimum',
+  kpi_range:         'Tartomány',
+  kpi_sub_co2:       'CO₂ szint',
+  kpi_sub_avg:       'Napi átlag',
+  kpi_sub_max:       'Napi csúcs',
+  kpi_sub_min:       'Napi mélypont',
+  kpi_sub_range:     'Max − Min',
+
+  // Státusz
+  status_nodata:     'Várakozás...',
+  updated:           'Frissítve',
+  measurement:       'mérés',
+
+  // CO₂ grafikon
+  chart_co2_title:   'CO₂ Koncentráció',
+  chart_co2_sub:     'Nyers mérés · Kálmán trendvonal',
+  toggle_trend:      'Trend',
+  toggle_raw:        'Nyers',
+  btn_all:           'Összes',
+
+  // Gauge
+  gauge_title:       'Aktuális szint',
+
+  // Statisztika
+  stat_title:        'Napi statisztika',
+  stat_peak_time:    'Csúcs ideje',
+  stat_trend:        'Trend',
+  stat_stable:       'Stabil',
+  stat_last10:       'ppm / utolsó 10 pont',
+  stat_count:        'Mérések',
+  stat_today:        'mai nap összesen',
+  stat_warning:      'Figyelem',
+  stat_critical:     'Kritikus',
+
+  // Sebesség / Gyorsulás
+  chart_speed_title: 'Változási Sebesség',
+  chart_speed_sub:   'ppm/perc · Min–Max jelölők',
+  chart_accel_title: 'Gyorsulás',
+  chart_accel_sub:   'Δ sebesség · Min–Max jelölők',
+
+  // Időbeli eloszlás
+  chart_time_title:  'Időbeli Eloszlás',
+  chart_time_sub:    'Percek száma kategóriánként',
+
+  // Levegőminőség
+  quality_title:     'Levegőminőség eloszlás — mai nap',
+  quality_excellent: 'Kiváló (<800)',
+  quality_good:      'Jó (800–1000)',
+  quality_warning:   'Figyelem (1k–1.5k)',
+  quality_critical:  'Kritikus (>1500)',
+
+  // Riasztás
+  alert_title:       'Eseménynapló',
+  alert_none:        'Nincs aktív riasztás',
+
+  // USB connect modal
+  connect_title:     'Eszköz csatlakoztatása',
+  connect_sub:       'Arduino / ESP szenzor USB-n',
+  connect_saved:     'Mentett eszközök',
+  connect_new:       'Új csatlakozás',
+  connect_allow:     'Böngésző portválasztó megnyitása',
+  connect_info:      'Chrome / Edge böngésző szükséges a Web Serial API-hoz.',
+}; }
+%>
+<!DOCTYPE html>
+<html lang="<%= lang %>" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+  <title>GrexAir CO₂ Monitor</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/grexair.css?v=200">
+  <script src="/static/js/theme.js?v=100"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: clamp(1.7rem,3.5vw,2.1rem); font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
+    .kpi-val b { font-weight: 600; font-size: inherit; }
+  </style>
+</head>
+<body>
+<div id="preloader"><div class="pl-wrap"><img src="/static/logo.png" class="pl-logo" alt="G" onerror="this.style.display='none'"><div class="pl-bar"><div class="pl-bar-fill"></div></div></div></div>
+<div class="aurora"><div class="ao ao1"></div><div class="ao ao2"></div><div class="ao ao3"></div><div class="ao ao4"></div></div>
+<div class="grain"></div>
+<nav class="gx-nav">
+  <a href="/" class="nav-brand">
+    <div class="nav-logo-wrap"><img src="/static/logo.png" alt="G" style="width:100%;height:100%;object-fit:contain" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'color:#fff;font-size:10px;font-weight:800;font-family:monospace',textContent:'CO2'}))"></div>
+    <div><div class="nav-brand-name">GrexAir</div><div class="nav-brand-tagline">CO₂ Monitor</div></div>
+  </a>
+  <div class="nav-links">
+    <a href="/" class="nav-link active"><i class="fas fa-chart-line" style="font-size:10px;margin-right:4px"></i><%= tr.nav_monitor %></a>
+    <a href="/upload" class="nav-link"><i class="fas fa-upload" style="font-size:10px;margin-right:4px"></i><%= tr.nav_upload %></a>
+  </div>
+  <div class="nav-right">
+    <!-- Nyelvválasztó -->
+    <div class="lang-picker" id="lang-picker">
+      <button class="lang-current" onclick="toggleLangMenu()" id="lang-btn">
+        <span class="fi fi-<%= lang==='en'?'gb':lang==='uk'?'ua':lang==='sr'?'rs':lang==='sl'?'si':lang==='sk'?'sk':lang==='hr'?'hr':lang==='ro'?'ro':lang==='de'?'de':lang==='ru'?'ru':'hu' %>" style="width:18px;height:14px;border-radius:2px;flex-shrink:0"></span>
+        <span class="lang-code"><%= lang.toUpperCase() %></span>
+        <i class="fas fa-chevron-down" style="font-size:8px;opacity:.5"></i>
+      </button>
+      <div class="lang-menu" id="lang-menu" style="display:none">
+        <% [['hu','hu','Magyar'],['en','gb','English'],['de','de','Deutsch'],['sk','sk','Slovenčina'],['ro','ro','Română'],['hr','hr','Hrvatski'],['sr','rs','Srpski'],['sl','si','Slovenščina'],['uk','ua','Українська'],['ru','ru','Русский']].forEach(function(l){ %>
+        <a href="/set-lang/<%= l[0] %>" class="lang-option <%= lang===l[0]?'active':'' %>">
+          <span class="fi fi-<%= l[1] %>" style="width:18px;height:14px;border-radius:2px;flex-shrink:0"></span>
+          <span><%= l[2] %></span>
+        </a>
+        <% }); %>
+      </div>
+    </div>
+    <button id="serialConnect" onclick="openConnectModal()" style="display:flex;align-items:center;gap:7px;padding:0 14px;height:32px;border-radius:999px;border:1px solid rgba(10,132,255,0.30);background:rgba(10,132,255,0.08);color:var(--blue);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;font-family:inherit;transition:all .2s;margin-right:8px;">
+      <i class="fas fa-plug" style="font-size:10px"></i>
+      <span id="serialConnect-text"><%= tr.connect_btn %></span>
+      <span id="serialConnect-dot" style="width:6px;height:6px;border-radius:50%;background:var(--blue);opacity:.5;flex-shrink:0"></span>
+    </button>
+    <button id="live-btn" class="<%= start_live ? 'active' : 'offline-mode' %>"><span class="dot"></span><span id="live-btn-text"><%= start_live ? tr.status_online : tr.status_offline %></span></button>
+    <span id="sensor-badge" class="<%= start_live ? 'color-green' : 'color-red' %>"><i class="fas fa-microchip" style="font-size:9px"></i><span id="sensor-status-text"><%= start_live ? tr.sensor_active : tr.sensor_nodata %></span></span>
+    <button class="notif-btn" id="notif-btn"><i class="fas fa-bell" style="font-size:12px"></i><span class="notif-dot" id="notif-dot"></span></button>
+    <button class="theme-btn" id="theme-toggle"><i class="fas fa-sun" id="theme-icon"></i></button>
+  </div>
+</nav>
+<div class="gx-page">
+<% if (!start_live) { %>
+<div class="toast-warning"><i class="fas fa-info-circle"></i><span><%= tr.toast_no_measure %> <strong><%= default_date %></strong>. <a href="#" id="jump-live" style="color:var(--blue);margin-left:6px"><%= tr.toast_load %></a></span></div>
+<% } %>
+<div class="gx-hero gx-a0">
+  <div><h1>CO₂ Monitoring</h1><div class="gx-hero-sub"><i class="fas fa-circle" style="color:var(--green);font-size:7px"></i><%= tr.hero_sub %></div></div>
+  <div class="gx-controls">
+    <!-- Date picker trigger button -->
+    <button class="gx-datepicker-btn" id="datepicker-btn" onclick="openDateModal()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="opacity:.6;flex-shrink:0">
+        <rect x="1" y="2" width="14" height="13" rx="2.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M1 6h14" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M5 1v2M11 1v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span id="datepicker-label"><%= default_date %></span>
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="opacity:.4;flex-shrink:0">
+        <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <!-- Hidden select for compatibility -->
+    <select id="date-selector" style="display:none"><% available_dates.forEach(function(date){ %><option value="<%= date %>" <%= date===default_date?'selected':'' %>><%= date %></option><% }); %></select>
+    <button id="export-btn" class="gx-btn"><i class="fas fa-download"></i> <%= tr.btn_export %></button>
+    <button id="pdf-btn" class="gx-btn" style="background:rgba(255,69,58,0.08);border-color:rgba(255,69,58,0.30);color:#ff453a"><i class="fas fa-file-pdf"></i> <%= tr.btn_export_pdf %></button>
+  </div>
+</div>
+
+<div class="gx-kpi-grid gx-a1">
+  <div id="card-current" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_current %></span><div class="kpi-icon" style="background:var(--blue-d)">🌡</div></div>
+    <div class="kpi-val" id="kpi-current"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_co2 %> <span id="kpi-trend" class="kpi-trend flat"></span></div>
+  </div>
+  <div id="card-avg" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_avg %></span><div class="kpi-icon" style="background:var(--pur-d)">📊</div></div>
+    <div class="kpi-val" id="kpi-avg"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_avg %></div>
+  </div>
+  <div id="card-max" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_max %></span><div class="kpi-icon" style="background:var(--red-d)">⬆</div></div>
+    <div class="kpi-val" id="kpi-max"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_max %></div>
+  </div>
+  <div id="card-min" class="gx-card kpi-card hoverable">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_min %></span><div class="kpi-icon" style="background:var(--green-d)">⬇</div></div>
+    <div class="kpi-val" id="kpi-min"><b style="color:var(--t1)">-</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_min %></div>
+  </div>
+  <div id="card-range" class="gx-card kpi-card hoverable" style="border-top:2px solid var(--teal)">
+    <div class="kpi-card-top"><span class="kpi-label"><%= tr.kpi_range %></span><div class="kpi-icon" style="background:var(--teal-d)">↕</div></div>
+    <div class="kpi-val" id="kpi-range"><b style="color:#5ac8fa">-</b><span style="color:rgba(255,255,255,0.28);font-size:11px;font-weight:300;font-family:Geist,sans-serif"> ppm</span></div>
+    <div class="kpi-sub"><%= tr.kpi_sub_range %></div>
+  </div>
+</div>
+
+<div class="gx-status-row gx-a2">
+  <div id="air-status-box" class="air-status-box status-neutral">
+    <span class="asb-dot" id="asb-dot"></span>
+    <span class="asb-label" id="asb-label"><%= tr.status_nodata %></span>
+    <span class="asb-ppm" id="asb-ppm"></span>
+  </div>
+  <div class="last-update-pill"><i class="fas fa-clock" style="font-size:9px;opacity:.6"></i><%= tr.updated %>: <span id="last-update">-</span></div>
+  <div class="last-update-pill" id="count-pill" style="display:none"><i class="fas fa-database" style="font-size:9px;opacity:.6"></i><span id="data-count">-</span> <%= tr.measurement %></div>
+</div>
+
+<div class="gx-row cols-31 gx-a3">
+  <div class="gx-card chart-wrap">
+    <div class="chart-header">
+      <div class="chart-title-block"><div class="chart-title-main"><%= tr.chart_co2_title %></div><div class="chart-title-sub"><%= tr.chart_co2_sub %></div></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="chart-legend">
+          <button class="leg-toggle active" id="toggle-trend" onclick="toggleSeries(1,'toggle-trend')">
+            <div class="leg-dot" style="background:#0a84ff"></div><%= tr.toggle_trend %> <span style="opacity:.55;font-size:9px">(<%= tr.chart_filter_label %>)</span>
+          </button>
+          <button class="leg-toggle active" id="toggle-nyers" onclick="toggleSeries(2,'toggle-nyers')">
+            <div class="leg-dot" style="background:rgba(10,132,255,.5)"></div><%= tr.toggle_raw %>
+          </button>
+        </div>
+        <div class="chart-opts"><button class="ch-opt active" data-zoom="all"><%= tr.btn_all %></button><button class="ch-opt" data-zoom="60">1 ó</button><button class="ch-opt" data-zoom="30">30 p</button><button class="ch-opt" data-zoom="15">15 p</button></div>
+      </div>
+    </div>
+    <div class="chart-h-xl" style="position:relative;overflow:visible">
+      <div id="co2ChartWrap" style="position:relative;width:100%"></div>
+      <canvas id="co2ChartMobile" style="display:none;width:100%;height:100%"></canvas>
+    </div>
+  </div>
+  <div class="chart-right-col" style="display:flex;flex-direction:column;gap:12px">
+    <div class="gx-card gauge-mini-wrap">
+      <div class="gauge-mini-title"><%= tr.gauge_title %></div>
+      <div class="gauge-svg-wrap"><svg viewBox="0 0 140 75" width="140" height="75"><path d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/><path id="gauge-fill" d="M 15 70 A 55 55 0 0 1 125 70" fill="none" stroke="#0a84ff" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke 1s,filter 1s"/></svg><div class="gauge-center-val"><div class="gcv-num" id="gauge-val" style="color:#0a84ff">-</div><div class="gcv-unit">ppm</div></div></div>
+      <div class="gauge-ticks-row">
+        <div class="g-tick"><div class="g-tick-dot" style="background:#30d158;box-shadow:0 0 5px #30d158"></div><div class="g-tick-val" style="color:#30d158">400</div><div class="g-tick-lbl"><%= (tr.quality_excellent||'Kiváló').split(' ')[0].substring(0,4) %></div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ffd60a;box-shadow:0 0 5px #ffd60a"></div><div class="g-tick-val" style="color:#ffd60a">800</div><div class="g-tick-lbl"><%= (tr.quality_good||'Jó').split(' ')[0].substring(0,3) %></div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ff9f0a;box-shadow:0 0 5px #ff9f0a"></div><div class="g-tick-val" style="color:#ff9f0a">1200</div><div class="g-tick-lbl"><%= (tr.stat_warning||'Figyelem').substring(0,4) %>.</div></div>
+        <div class="g-tick"><div class="g-tick-dot" style="background:#ff453a;box-shadow:0 0 5px #ff453a"></div><div class="g-tick-val" style="color:#ff453a">1500</div><div class="g-tick-lbl"><%= (tr.stat_critical||'Kritikus').substring(0,4) %>.</div></div>
+      </div>
+    </div>
+    <div class="gx-card stat-side">
+      <div class="stat-side-title"><%= tr.stat_title %></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label"><%= tr.stat_peak_time %></span><span class="stat-row-badge badge-warn" id="stat-peak-badge">-</span></div><div class="stat-row-val" id="stat-peak-time">-</div><div class="stat-row-sub" id="stat-peak-val">-</div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label"><%= tr.stat_trend %></span><span class="stat-row-badge badge-flat" id="stat-trend-badge"><%= tr.stat_stable %></span></div><div class="stat-row-val" id="stat-trend">+0</div><div class="stat-row-sub"><%= tr.stat_last10 %></div></div>
+      <div class="stat-row"><div class="stat-row-top"><span class="stat-row-label"><%= tr.stat_count %></span></div><div class="stat-row-val" id="stat-count">-</div><div class="stat-row-sub"><%= tr.stat_today %></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="gx-row cols-4 gx-a4">
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#bf5af2"><%= tr.chart_speed_title %></div><div class="chart-title-sub"><%= tr.chart_speed_sub %></div></div></div><div class="chart-h-md" style="position:relative;overflow:visible"><div id="speedChartWrap" style="position:relative;width:100%"></div></div></div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#ff9f0a"><%= tr.chart_accel_title %></div><div class="chart-title-sub"><%= tr.chart_accel_sub %></div></div></div><div class="chart-h-md" style="position:relative;overflow:visible"><div id="accelChartWrap" style="position:relative;width:100%"></div></div></div>
+  <!-- Szellőzési mutató — önálló kártya -->
+  <div class="gx-card chart-wrap">
+    <div class="chart-header">
+      <div class="chart-title-block">
+        <div class="chart-title-main" style="--blue:#5ac8fa"><%= tr.vent_status %></div>
+        <div class="chart-title-sub">d1 + d2 alapján</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 38px);min-height:160px;padding-bottom:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div id="vent-status-text" style="font-size:13px;font-weight:700;color:var(--t1);line-height:1.3">-</div>
+          <div id="vent-status-sub" style="font-size:10px;color:var(--t3);margin-top:4px">-</div>
+        </div>
+        <div id="vent-icon" style="font-size:26px;margin-top:2px">-</div>
+      </div>
+      <div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:6px 10px;margin-bottom:10px">
+          <div style="font-size:8px;color:var(--t3);margin-bottom:2px">Sebesség (d1)</div>
+          <div id="vent-d1" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700">-</div>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:4px">
+          <div id="vent-bar" style="height:100%;width:50%;background:#5ac8fa;border-radius:3px;transition:width .8s,background .8s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--t3)">
+          <span>Romlik</span><span>Stabil</span><span>Javul</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="gx-card chart-wrap"><div class="chart-header"><div class="chart-title-block"><div class="chart-title-main" style="--blue:#30d158"><%= tr.chart_time_title %></div><div class="chart-title-sub"><%= tr.chart_time_sub %></div></div></div><div class="chart-h-md" style="height:210px"><canvas id="timeBarChart"></canvas></div></div>
+</div>
+
+<div class="gx-row cols-3 gx-a5">
+  <div class="gx-card quality-bar-wrap">
+    <div class="quality-bar-title"><%= tr.quality_title %></div>
+    <div class="quality-levels">
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#30d158"></div><%= tr.quality_excellent %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-good" style="width:0%;background:linear-gradient(90deg,#30d158,#0fa02e)"></div></div><div class="ql-pct" id="ql-good-pct" style="color:#30d158">-</div><div class="ql-time" id="ql-good-t">-</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ffd60a"></div><%= tr.quality_good %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-ok" style="width:0%;background:linear-gradient(90deg,#ffd60a,#e5b800)"></div></div><div class="ql-pct" id="ql-ok-pct" style="color:#ffd60a">-</div><div class="ql-time" id="ql-ok-t">-</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff9f0a"></div><%= tr.quality_warning %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-warn" style="width:0%;background:linear-gradient(90deg,#ff9f0a,#e08000)"></div></div><div class="ql-pct" id="ql-warn-pct" style="color:#ff9f0a">-</div><div class="ql-time" id="ql-warn-t">-</div></div>
+      <div class="ql-row"><div class="ql-label"><div class="ql-dot" style="background:#ff453a"></div><%= tr.quality_critical %></div><div class="ql-bar-track"><div class="ql-bar-fill" id="ql-crit" style="width:0%;background:linear-gradient(90deg,#ff453a,#cc1a10)"></div></div><div class="ql-pct" id="ql-crit-pct" style="color:#ff453a">-</div><div class="ql-time" id="ql-crit-t">-</div></div>
+    </div>
+  </div>
+  <div class="gx-card alert-panel">
+    <div class="alert-panel-title"><%= tr.alert_title %> <span class="alert-count" id="alert-count">0</span></div>
+    <div id="alert-list"><div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i><%= tr.alert_none %></div></div>
+  </div>
+  <!-- Szellőztetési napló -->
+  <div class="gx-card" style="padding:12px 14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2)"><%= tr.vent_log %></div>
+      <span style="font-size:9px;color:var(--t3)" id="vent-log-count">0 esemény</span>
+    </div>
+    <div id="vent-log-list" style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto">
+      <div style="font-size:10px;color:var(--t3);text-align:center;padding:6px 0"><i class="fas fa-wind" style="margin-right:6px;opacity:.4"></i>Még nincs rögzített szellőztetés</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<button id="btn-history" style="display:none"></button>
+<button id="btn-live" style="display:none"></button>
+
+<script src="/static/js/monitor.js?v=338"></script>
+<script>
+// Fordítások átadása a kliensnek
+var GX_TR = <%- JSON.stringify(tr) %>;
+var GX_LANG = '<%= lang %>';
+// ── PDF Riport gomb ──
+document.getElementById('pdf-btn').onclick = function() {
+    // Grafikon canvas screenshot mentése
+    var co2Canvas = document.querySelector('#co2ChartWrap canvas');
+    if (co2Canvas) {
+        try {
+            sessionStorage.setItem('grexair_chart_png', co2Canvas.toDataURL('image/png'));
+        } catch(e) { console.warn('Canvas mentés sikertelen:', e); }
+    }
+    // Csúcs ideje mentése
+    var peakEl = document.getElementById('stat-peak-time');
+    if (peakEl) sessionStorage.setItem('grexair_peak_time', peakEl.textContent);
+    // Dátum meghatározása
+    var dateVal = document.getElementById('date-selector') ? document.getElementById('date-selector').value : '';
+    // Riport oldal megnyitása új ablakban
+    window.open('/report' + (dateVal ? '?date=' + dateVal : ''), '_blank', 'width=900,height=700,scrollbars=yes');
+};
+
+// ── Fullscreen — CSS alapú (megbízhatóbb) ──
+var _isFullscreen = false;
+window._isFullscreen = false;
+function toggleFullscreen() {
+    _isFullscreen = !_isFullscreen;
+    window._isFullscreen = _isFullscreen;
+    var wrap = document.getElementById('co2ChartWrap');
+    var card = wrap && wrap.closest('.gx-card');
+    var btn  = document.getElementById('fs-btn');
+    if (_isFullscreen) {
+        document.body.classList.add('fs-active');
+        if (card) card.classList.add('fs-chart');
+        if (btn) btn.textContent = '✕';
+        requestAnimationFrame(function() {
+            if (window.co2UPlot) {
+                window.co2UPlot.setSize({width: window.innerWidth - 32, height: window.innerHeight - 90});
+            }
+        });
+    } else {
+        document.body.classList.remove('fs-active');
+        if (card) card.classList.remove('fs-chart');
+        if (btn) btn.textContent = '⛶';
+        requestAnimationFrame(function() {
+            if (window.co2UPlot) {
+                window.co2UPlot.setSize({width: measureW('co2ChartWrap', 800), height: 400});
+            }
+        });
+    }
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && _isFullscreen) toggleFullscreen();
+});
+
+// ── Szellőztetési napló ──
+var _ventLog = [];
+var _ventState = false; // jelenleg szellőzik-e
+var _ventStart = null;  // mikor kezdődött
+var _ventStartPpm = null;
+
+function updateVentLog(d1, currentPpm, timeLabel) {
+    var isVenting = d1 < -2;
+    if (isVenting && !_ventState) {
+        // Szellőztetés kezdete
+        _ventState = true;
+        _ventStart = timeLabel;
+        _ventStartPpm = currentPpm;
+    } else if (!isVenting && _ventState) {
+        // Szellőztetés vége
+        _ventState = false;
+        var drop = _ventStartPpm - currentPpm;
+        if (drop > 20) { // csak ha legalább 20 ppm-t csökkent
+            _ventLog.unshift({
+                start: _ventStart,
+                end: timeLabel,
+                from: _ventStartPpm,
+                to: Math.round(currentPpm),
+                drop: Math.round(drop)
+            });
+            if (_ventLog.length > 10) _ventLog.pop();
+            renderVentLog();
+        }
+    }
+}
+
+function renderVentLog() {
+    var list = document.getElementById('vent-log-list');
+    var cnt  = document.getElementById('vent-log-count');
+    if (!list) return;
+    if (cnt) cnt.textContent = _ventLog.length + ' esemény';
+    if (!_ventLog.length) {
+        list.innerHTML = '<div style="font-size:10px;color:var(--t3);text-align:center;padding:12px 0"><i class="fas fa-wind" style="margin-right:6px;opacity:.4"></i>Még nincs rögzített szellőztetés</div>';
+        return;
+    }
+    list.innerHTML = _ventLog.map(function(e) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:rgba(48,209,88,0.06);border:1px solid rgba(48,209,88,0.15);border-radius:6px">' +
+            '<div style="flex:1;min-width:0">' +
+                '<div style="font-size:10px;font-weight:600;color:var(--t1)">' + e.start + ' – ' + e.end + '</div>' +
+                '<div style="font-size:9px;color:var(--t3)">' + e.from + ' → ' + e.to + ' ppm</div>' +
+            '</div>' +
+            '<div style="font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:700;color:#30d158;flex-shrink:0">-' + e.drop + '</div>' +
+        '</div>';
+    }).join('');
+}
+
+// ── Trend/Nyers toggle ──
+var _seriesVisible = {1: true, 2: true};
+function toggleSeries(seriesIdx, btnId) {
+    if (!window.co2UPlot) return;
+    _seriesVisible[seriesIdx] = !_seriesVisible[seriesIdx];
+    var btn = document.getElementById(btnId);
+    if (btn) btn.classList.toggle('active', _seriesVisible[seriesIdx]);
+    window.co2UPlot.setSeries(seriesIdx, {show: _seriesVisible[seriesIdx]});
+}
+
+// ── Nyelvválasztó menü ──
+function toggleLangMenu() {
+    var menu = document.getElementById('lang-menu');
+    if (!menu) return;
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', function(e) {
+    var picker = document.getElementById('lang-picker');
+    if (picker && !picker.contains(e.target)) {
+        var menu = document.getElementById('lang-menu');
+        if (menu) menu.style.display = 'none';
+    }
+});
+
+// ── Dátumválasztó modal ──────────────────────────
+function openDateModal() {
+    document.getElementById('gx-date-modal').classList.add('active');
+    var active = document.querySelector('#gdm-scroll .gdp-day.active');
+    if (active) setTimeout(function(){ active.scrollIntoView({block:'center', behavior:'smooth'}); }, 80);
+    // update footer
+    var lbl = document.getElementById('gdm-selected-val');
+    if (lbl) lbl.textContent = document.getElementById('datepicker-label').textContent;
+}
+function closeDateModal() {
+    document.getElementById('gx-date-modal').classList.remove('active');
+}
+function selectDate(val) {
+    var sel = document.getElementById('date-selector');
+    sel.value = val;
+    document.getElementById('datepicker-label').textContent = val;
+    document.querySelectorAll('#gdm-scroll .gdp-day').forEach(function(el){
+        el.classList.toggle('active', el.dataset.val === val);
+    });
+    var lbl = document.getElementById('gdm-selected-val');
+    if (lbl) lbl.textContent = val;
+    closeDateModal();
+    sel.dispatchEvent(new Event('change'));
+}
+document.addEventListener('DOMContentLoaded', function(){
+    var dm = document.getElementById('gx-date-modal');
+    if (dm) dm.addEventListener('click', function(e){ if(e.target===this) closeDateModal(); });
+});
+
+document.getElementById('date-selector').addEventListener('change', function() {
+    document.getElementById('btn-history').click();
+});
+document.getElementById('live-btn').onclick = function() {
+    document.getElementById('btn-live').click();
+};
+var jl = document.getElementById('jump-live');
+if (jl) jl.onclick = function(e) {
+    e.preventDefault();
+    var toast = jl.closest('.toast-warning');
+    if (toast) toast.style.display = 'none';
+    document.getElementById('btn-history').click();
+};
+
+// ── Zoom gombok ──
+document.querySelectorAll('[data-zoom]').forEach(function(b) {
+    b.onclick = function() {
+        document.querySelectorAll('[data-zoom]').forEach(function(x) { x.classList.remove('active'); });
+        this.classList.add('active');
+        if (typeof window.applyZoom === 'function') window.applyZoom(this.dataset.zoom);
+    };
+});
+
+// ── Elsőként betöltünk history adatot ──
+window.addEventListener('load', function() {
+    setTimeout(function() { document.getElementById('btn-history').click(); }, 400);
+});
+
+// ── Export gomb — uPlot adatokból ──
+document.getElementById('export-btn').onclick = function() {
+    var src = window._fullChartArrays;
+    if (!src || !src.ts || !src.ts.length) { alert('Nincs exportálható adat!'); return; }
+    var rows = ['\uFEFFId\u0151,CO2_nyers,CO2_savgol,Sebess\u00e9g'];
+    var ts = window._fullTimestamps || [];
+    for (var i = 0; i < src.ts.length; i++) {
+        rows.push([
+            ts[i] ? ts[i].substring(11,16) : src.ts[i],
+            src.raw[i] != null ? src.raw[i] : '',
+            src.smooth[i] != null ? src.smooth[i] : '',
+            src.speeds[i] != null ? src.speeds[i] : ''
+        ].join(','));
+    }
+    var b = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var u = URL.createObjectURL(b), a = document.createElement('a');
+    a.href = u; a.download = 'grexair_' + (document.getElementById('date-selector').value || 'export') + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+};
+
+// ── Riasztás panel gomb ──
+document.getElementById('notif-btn').onclick = function() {
+    var p = document.querySelector('.alert-panel');
+    if (p) p.scrollIntoView({behavior:'smooth', block:'start'});
+};
+
+// ── Levegőminőség eloszlás sávok ──
+var _lastPpm = null, _alerts = [];
+function setQL(k, v, tot) {
+    var pct = tot > 0 ? Math.round(v / tot * 100) : 0;
+    var f = document.getElementById('ql-' + k);
+    if (f) f.style.width = pct + '%';
+    var pp = document.getElementById('ql-' + k + '-pct');
+    if (pp) pp.textContent = pct + '%';
+    var tt = document.getElementById('ql-' + k + '-t');
+    if (tt) {
+        var mins = Math.round(v);
+        var minTxt = (GX_TR && GX_TR.minute) || 'perc';
+        var hrTxt  = (GX_TR && GX_TR.hour)   || 'ora';
+        if (mins <= 0) tt.textContent = '0 ' + minTxt;
+        else if (mins < 60) tt.textContent = mins + ' ' + minTxt;
+        else { var h = Math.floor(mins/60), m = mins%60; tt.textContent = h + ' ' + hrTxt + (m > 0 ? ' ' + m + ' ' + minTxt : ''); }
+    }
+}
+
+// ── Riasztások ──
+var _thr = [1500, 1200, 1000, 800];
+function addAlert(ppm) {
+    if (isNaN(ppm) || ppm === _lastPpm) return;
+    var prev = _lastPpm; _lastPpm = ppm;
+    if (prev === null) return;
+    _thr.forEach(function(t) {
+        if ((prev < t) !== (ppm < t)) {
+            var now = new Date().toLocaleTimeString('hu-HU', {hour:'2-digit', minute:'2-digit'});
+            var type = t >= 1500 ? 'danger' : t >= 1000 ? 'warn' : t >= 800 ? 'info' : 'good';
+            var aboveTxt = (GX_TR && GX_TR.alert_above) || 'küszöb átlépve';
+            var belowTxt = (GX_TR && GX_TR.alert_below) || 'alá csökkent';
+            _alerts.unshift({type:type, msg:(ppm >= t ? '+' + t + ' ppm ' + aboveTxt : '-' + t + ' ppm ' + belowTxt), time:now, ppm:ppm});
+            if (_alerts.length > 8) _alerts.pop();
+        }
+    });
+    renderAlerts();
+}
+function renderAlerts() {
+    var list = document.getElementById('alert-list'), cnt = document.getElementById('alert-count'), dot = document.getElementById('notif-dot');
+    if (!list) return;
+    var d = _alerts.filter(function(a){ return a.type === 'danger' || a.type === 'warn'; }).length;
+    if (cnt) cnt.textContent = d;
+    if (dot) dot.classList.toggle('show', d > 0);
+    if (!_alerts.length) {
+        var noneText = (GX_TR && GX_TR.alert_none) || 'Nincs aktív riasztás';
+        list.innerHTML = '<div class="no-alerts"><i class="fas fa-check-circle" style="color:var(--green);margin-right:6px"></i>' + noneText + '</div>';
+        return;
+    }
+    list.innerHTML = _alerts.map(function(a) {
+        return '<div class="alert-item ' + a.type + '"><div class="alert-icon">' + (a.type==='danger'?'!':a.type==='warn'?'?':'OK') + '</div><div class="alert-body"><div class="alert-title">' + a.msg + '</div><div class="alert-desc">' + a.ppm + ' ppm</div></div><div class="alert-time">' + a.time + '</div></div>';
+    }).join('');
+}
+
+// ── afterUpdate: KPI kiegészítők, statisztikák, riasztások ──
+function afterUpdate(p) {
+    if (!p) return;
+    var tr = window.GX_TR || {};
+    var cur = parseInt(p.kpi && p.kpi.current);
+
+    // Trend számítás
+    if (p.chartData && p.chartData.length >= 2) {
+        var last = p.chartData[p.chartData.length-1], prev2 = p.chartData[Math.max(0, p.chartData.length-10)];
+        var diff = Math.round((last.y_smooth||last.y_raw) - (prev2.y_smooth||prev2.y_raw));
+        var tb = document.getElementById('kpi-trend');
+        if (tb) { tb.textContent = (diff>0?'+':'') + diff + ' ppm'; tb.className = 'kpi-trend ' + (diff>20?'up':diff<-20?'down':'flat'); }
+        var st = document.getElementById('stat-trend'), sb = document.getElementById('stat-trend-badge');
+        if (st) st.textContent = (diff>0?'+':'') + diff;
+        var risingTxt  = (GX_TR && GX_TR.stat_rising)  || 'Emelkedő';
+        var fallingTxt = (GX_TR && GX_TR.stat_falling) || 'Csökkenő';
+        var stableTxt  = (GX_TR && GX_TR.stat_stable)  || 'Stabil';
+        if (sb) { sb.textContent = diff>20 ? risingTxt : diff<-20 ? fallingTxt : stableTxt; sb.className = 'stat-row-badge ' + (diff>20?'badge-up':diff<-20?'badge-down':'badge-flat'); }
+    }
+
+    // Mérésszám
+    var cnt2 = p.chartData ? p.chartData.length : 0;
+    var sc = document.getElementById('stat-count'); if (sc) sc.textContent = cnt2.toLocaleString('hu-HU');
+    var dc = document.getElementById('data-count'); if (dc) dc.textContent = cnt2.toLocaleString('hu-HU');
+    var cp = document.getElementById('count-pill'); if (cp) cp.style.display = cnt2 ? 'flex' : 'none';
+
+    // Levegőminőség sávok
+    if (p.timeStats) {
+        var ts2 = p.timeStats, tot = (ts2[0]||0)+(ts2[1]||0)+(ts2[2]||0)+(ts2[3]||0);
+        setQL('good', ts2[0]||0, tot); setQL('ok', ts2[1]||0, tot);
+        setQL('warn', ts2[2]||0, tot); setQL('crit', ts2[3]||0, tot);
+    }
+
+    // Csúcs ideje — uPlot adatokból
+    if (p.chartData && p.kpi && p.kpi.max && window._fullTimestamps) {
+        for (var i = p.chartData.length-1; i >= 0; i--) {
+            if (Math.round(p.chartData[i].y_raw) == p.kpi.max || Math.round(p.chartData[i].y_smooth) == p.kpi.max) {
+                var lbl = window._fullTimestamps[i];
+                if (lbl) { var dt2 = new Date(lbl.replace(' ','T')+'Z'); lbl = isNaN(dt2) ? lbl.substring(11,16) : dt2.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'}); }
+                var pt = document.getElementById('stat-peak-time'), pv = document.getElementById('stat-peak-val'), pb = document.getElementById('stat-peak-badge');
+                if (pt && lbl) pt.textContent = lbl;
+                if (pv) pv.textContent = p.kpi.max + ' ppm';
+                if (pb) {
+                    var critTxt = (GX_TR && GX_TR.stat_critical) || 'Kritikus';
+                    var warnTxt = (GX_TR && GX_TR.stat_warning)  || 'Figyelem';
+                    var normTxt = (GX_TR && GX_TR.stat_normal)   || 'Normális';
+                    pb.className = 'stat-row-badge ' + (p.kpi.max>1500?'badge-up':p.kpi.max>1000?'badge-warn':'badge-flat');
+                    pb.textContent = p.kpi.max>1500 ? critTxt : p.kpi.max>1000 ? warnTxt : normTxt;
+                }
+                break;
+            }
+        }
+    }
+    // Szellőzési mutató — 1. és 2. derivált alapján
+    if (p.chartData && p.chartData.length >= 10) {
+        var cd = p.chartData;
+        var n = cd.length;
+        // 1. derivált: utolsó 5 pont mozgóátlag-különbsége (ppm/perc)
+        var recent = cd.slice(n-5).map(function(d){ return d.y_smooth||d.y_raw||0; });
+        var older  = cd.slice(n-10, n-5).map(function(d){ return d.y_smooth||d.y_raw||0; });
+        var avgRecent = recent.reduce(function(a,b){return a+b;},0)/recent.length;
+        var avgOlder  = older.reduce(function(a,b){return a+b;},0)/older.length;
+        var d1 = Math.round((avgRecent - avgOlder) * 10) / 10; // ppm/perc
+
+        // 2. derivált: a sebesség változása
+        var oldest = cd.slice(n-15, n-10).map(function(d){ return d.y_smooth||d.y_raw||0; });
+        var avgOldest = oldest.length ? oldest.reduce(function(a,b){return a+b;},0)/oldest.length : avgOlder;
+        var d1prev = avgOlder - avgOldest;
+        var d2 = Math.round((d1 - d1prev) * 10) / 10;
+
+        // Értelmezés — d1 + d2 kombinált logika
+        var ventText, ventSub, ventIcon, ventColor, ventBarPct;
+        if (d1 < -3 && d2 < -0.5) {
+            ventText=tr.vent_accel_t; ventSub=tr.vent_accel_s; ventIcon='🌬️';
+            ventColor='#30d158'; ventBarPct=95;
+        } else if (d1 < -3 && d2 >= -0.5) {
+            ventText=tr.vent_steady_t; ventSub=tr.vent_steady_s; ventIcon='💨';
+            ventColor='#30d158'; ventBarPct=82;
+        } else if (d1 < -1 && d2 > 0.5) {
+            ventText=tr.vent_slow_t; ventSub=tr.vent_slow_s; ventIcon='💨';
+            ventColor='#5ac8fa'; ventBarPct=68;
+        } else if (d1 < -1) {
+            ventText=tr.vent_mild_t; ventSub=tr.vent_mild_s; ventIcon='🍃';
+            ventColor='#5ac8fa'; ventBarPct=62;
+        } else if (d1 >= -1 && d1 <= 1) {
+            ventText=tr.vent_stable_t; ventSub=tr.vent_stable_s; ventIcon='✅';
+            ventColor='#ffd60a'; ventBarPct=50;
+        } else if (d1 > 1 && d1 <= 3 && d2 < -0.5) {
+            ventText=tr.vent_degrade_slow_t; ventSub=tr.vent_degrade_slow_s; ventIcon='⚠️';
+            ventColor='#ff9f0a'; ventBarPct=35;
+        } else if (d1 > 1 && d1 <= 3) {
+            ventText=tr.vent_degrade_mild_t; ventSub=tr.vent_degrade_mild_s; ventIcon='⚠️';
+            ventColor='#ff9f0a'; ventBarPct=30;
+        } else if (d1 > 3 && d2 > 0.5) {
+            ventText=tr.vent_degrade_fast_t; ventSub=tr.vent_degrade_fast_s; ventIcon='🚨';
+            ventColor='#ff453a'; ventBarPct=5;
+        } else {
+            ventText=tr.vent_rapid_t; ventSub=tr.vent_rapid_s; ventIcon='🚨';
+            ventColor='#ff453a'; ventBarPct=12;
+        }
+
+        var vtEl=document.getElementById('vent-status-text');
+        var vsEl=document.getElementById('vent-status-sub');
+        var viEl=document.getElementById('vent-icon');
+        var vd1=document.getElementById('vent-d1');
+        var vd2=document.getElementById('vent-d2');
+        var vbar=document.getElementById('vent-bar');
+        if(vtEl){ vtEl.textContent=ventText; vtEl.style.color=ventColor; }
+        if(vsEl) vsEl.textContent=ventSub;
+        if(viEl) viEl.textContent=ventIcon;
+        if(vd1){ vd1.textContent=(d1>0?'+':'')+d1+' ppm/p'; vd1.style.color=d1>1?'#ff453a':d1<-1?'#30d158':'#ffd60a'; }
+        if(vd2){ vd2.textContent=(d2>0?'+':'')+d2+' ppm/p²'; vd2.style.color=d2>0?'#ff9f0a':'#30d158'; }
+        if(vbar){ vbar.style.width=ventBarPct+'%'; vbar.style.background=ventColor; }
+        // Szellőztetési napló frissítése
+        var timeNow = document.getElementById('last-update') ? document.getElementById('last-update').textContent : '';
+        updateVentLog(d1, avgRecent, timeNow);
+    }
+
+    // Szellőztetési napló — teljes nap végigolvasása
+    if (p.chartData && p.chartData.length > 30) {
+        _ventLog = [];
+        var cd2 = p.chartData;
+        var WIN = 15;
+        var inVent = false;
+        var ventStartIdx = 0;
+
+        // Debug: megnézzük az első pont mezőneveit
+        console.log('Vent log debug - first point:', JSON.stringify(cd2[0]));
+        console.log('Vent log debug - total points:', cd2.length);
+
+        // Meghatározzuk melyik mező a smooth érték
+        var smoothKey = 'y_smooth';
+        if (cd2[0] && cd2[0].y_smooth == null && cd2[0].smooth != null) smoothKey = 'smooth';
+        if (cd2[0] && cd2[0].y_smooth == null && cd2[0].value != null) smoothKey = 'value';
+
+        function getVal(d) {
+            return parseFloat(d[smoothKey] || d.y_smooth || d.y_raw || d.raw || d.y || 0);
+        }
+
+        for (var vi = WIN; vi < cd2.length; vi++) {
+            var vNow  = getVal(cd2[vi]);
+            var vBack = getVal(cd2[vi-WIN]);
+            var vSlope = vNow - vBack;
+
+            if (!inVent && vSlope < -15) {
+                inVent = true;
+                ventStartIdx = vi - WIN;
+            } else if (inVent && vSlope >= 0) {
+                inVent = false;
+                var vFrom = getVal(cd2[ventStartIdx]);
+                var vTo   = vNow;
+                var vDrop = Math.round(vFrom - vTo);
+                var vStartTime = (cd2[ventStartIdx].x || '').substring(11,16);
+                var vEndTime   = (cd2[vi].x || '').substring(11,16);
+                console.log('Vent event:', vStartTime, '->', vEndTime, 'drop:', vDrop);
+                if (vDrop > 20) {
+                    _ventLog.push({ start: vStartTime, end: vEndTime, from: Math.round(vFrom), to: Math.round(vTo), drop: vDrop });
+                }
+            }
+        }
+        if (inVent && cd2.length > 0) {
+            var vFrom2 = getVal(cd2[ventStartIdx]);
+            var vTo2   = getVal(cd2[cd2.length-1]);
+            var vDrop2 = Math.round(vFrom2 - vTo2);
+            if (vDrop2 > 20) {
+                _ventLog.push({ start: (cd2[ventStartIdx].x||'').substring(11,16), end: (cd2[cd2.length-1].x||'').substring(11,16), from: Math.round(vFrom2), to: Math.round(vTo2), drop: vDrop2 });
+            }
+        }
+        console.log('Vent log result:', _ventLog.length, 'events');
+        _ventLog.reverse();
+        if (_ventLog.length > 10) _ventLog = _ventLog.slice(0, 10);
+        renderVentLog();
+    }
+    addAlert(cur);
+}
+
+// updateUI hookolása afterUpdate-re
+(function hookAfterUpdate() {
+    function tryHook() {
+        if (typeof window.updateUI === 'function' && !window.updateUI._hooked) {
+            var orig = window.updateUI;
+            window.updateUI = function(p) { orig(p); afterUpdate(p); };
+            window.updateUI._hooked = true;
+        } else if (!window.updateUI || !window.updateUI._hooked) {
+            setTimeout(tryHook, 100);
+        }
+    }
+    tryHook();
+})();
+
+// ── USB Csatlakozás Modal ──
+var _activePort = null;
+
+function openConnectModal() {
+    // Update API status chip
+    var apiOk = !!navigator.serial;
+    var apiDot = document.getElementById('usb-api-dot');
+    var apiLbl = document.getElementById('usb-api-label');
+    if (apiDot) { apiDot.className = 'gx-usb-chip-dot ' + (apiOk ? 'green' : 'red'); }
+    if (apiLbl) { apiLbl.textContent = apiOk ? 'Web Serial ✓' : 'Web Serial ✗'; }
+    // Update connection status chip
+    var isConn = window._serialConnected;
+    var connDot = document.getElementById('usb-conn-dot');
+    var connLbl = document.getElementById('usb-conn-label');
+    if (connDot) { connDot.className = 'gx-usb-chip-dot ' + (isConn ? 'blue pulse' : 'red'); }
+    if (connLbl) { connLbl.textContent = isConn ? ((GX_TR&&GX_TR.connect_connected)||'Csatlakozva') : ((GX_TR&&GX_TR.connect_btn)||'Nincs kapcsolat'); }
+    if (_activePort) { disconnectUSB(); return; }
+    var modal = document.getElementById('gx-connect-modal');
+    if (modal) { modal.style.display = 'flex'; refreshPortList(); }
+}
+function closeConnectModal() {
+    var modal = document.getElementById('gx-connect-modal');
+    if (modal) modal.style.display = 'none';
+}
+function refreshPortList() {
+    var list = document.getElementById('gx-port-list');
+    if (!list) return;
+    list.innerHTML = '<div class="gx-port-loading"><i class="fas fa-circle-notch fa-spin"></i> ' + ((GX_TR && GX_TR.connect_searching) || 'Portok keresese...') + '</div>';
+    if (!navigator.serial) {
+        list.innerHTML = '<div class="gx-port-empty" style="color:var(--red)">A Web Serial API nem t\u00e1mogatott ebben a b\u00f6ng\u00e9sz\u0151ben.</div>';
+        return;
+    }
+    navigator.serial.getPorts().then(function(ports) {
+        if (ports.length === 0) {
+            list.innerHTML = '<div class="gx-port-empty"><i class="fas fa-inbox" style="font-size:22px;opacity:.3;margin-bottom:8px;display:block"></i><span>Nincs kor\u00e1bban enged\u00e9lyezett eszk\u00f6z</span></div>';
+        } else {
+            list.innerHTML = '';
+            window._cachedPorts = ports;
+            ports.forEach(function(port, i) {
+                var info = port.getInfo ? port.getInfo() : {};
+                var name = info.usbVendorId ? 'USB Eszk\u00f6z (VID: 0x' + info.usbVendorId.toString(16).padStart(4,'0') + ')' : 'S\u00f3ros Port #' + (i+1);
+                var item = document.createElement('div');
+                item.className = 'gx-port-item';
+                item.innerHTML = '<div class="gx-port-icon"><i class="fas fa-microchip"></i></div><div class="gx-port-info"><div class="gx-port-name">'+name+'</div><div class="gx-port-sub">Enged\u00e9lyezett eszk\u00f6z</div></div><button class="gx-port-btn" onclick="connectToPort(window._cachedPorts['+i+'])">Csatlakoz\u00e1s</button>';
+                list.appendChild(item);
+            });
+        }
+    }).catch(function(e) {
+        list.innerHTML = '<div class="gx-port-empty" style="color:var(--red)"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i>' + e.message + '</div>';
+    });
+}
+function requestNewPort() {
+    closeConnectModal();
+    if (!navigator.serial) return;
+    navigator.serial.requestPort().then(function(port) {
+        connectToPort(port);
+    }).catch(function(e) {
+        if (e.name !== 'NotFoundError') console.error(e);
+    });
+}
+function connectToPort(port) {
+    closeConnectModal();
+    port.open({baudRate: 9600}).then(function() {
+        _activePort = port;
+        var btn = document.getElementById('serialConnect');
+        document.getElementById('serialConnect-text').textContent = (GX_TR && GX_TR.connect_connected) || 'CSATLAKOZVA';
+        btn.style.background = 'rgba(48,209,88,0.12)';
+        btn.style.borderColor = 'rgba(48,209,88,0.35)';
+        btn.style.color = 'var(--green)';
+        var dot = document.getElementById('serialConnect-dot');
+        dot.style.background = 'var(--green)'; dot.style.opacity = '1'; dot.style.animation = 'livP 1.6s ease infinite';
+        var decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        var reader = decoder.readable.getReader();
+        var buffer = '';
+        function readLoop() {
+            reader.read().then(function(result) {
+                if (result.done) return;
+                buffer += result.value;
+                if (buffer.includes('\n')) {
+                    var lines = buffer.split('\n'); buffer = lines.pop();
+                    lines.forEach(function(line) {
+                        var ppm = parseInt(line.trim());
+                        if (!isNaN(ppm)) fetch('/api/live-upload', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ppm:ppm})}).catch(function(e){console.error(e);});
+                    });
+                }
+                readLoop();
+            }).catch(function(e) { console.error('Olvas\u00e1si hiba:', e); disconnectUSB(); });
+        }
+        readLoop();
+    }).catch(function(e) { console.error('Csatlakoz\u00e1si hiba:', e); disconnectUSB(); });
+}
+function disconnectUSB() {
+    if (_activePort) { try { _activePort.close(); } catch(e){} _activePort = null; }
+    var btn = document.getElementById('serialConnect');
+    if (!btn) return;
+    document.getElementById('serialConnect-text').textContent = (GX_TR && GX_TR.connect_btn) || 'USB KAPCSOLAT';
+    btn.style.background = 'rgba(10,132,255,0.08)'; btn.style.borderColor = 'rgba(10,132,255,0.30)'; btn.style.color = 'var(--blue)';
+    var dot = document.getElementById('serialConnect-dot');
+    if (dot) { dot.style.background = 'var(--blue)'; dot.style.opacity = '.5'; dot.style.animation = 'none'; }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('gx-connect-modal');
+    if (modal) modal.addEventListener('click', function(e){ if(e.target===modal) closeConnectModal(); });
+});
+</script>
+
+<!-- ── GX CONNECT MODAL ── -->
+<div id="gx-connect-modal" class="gx-modal-overlay">
+  <div class="gx-modal-panel">
+
+    <!-- Header -->
+    <div class="gx-modal-header">
+      <div class="gx-modal-title-wrap">
+        <div class="gx-modal-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22V12M12 12L9 9M12 12L15 9M5 8V6a2 2 0 012-2h10a2 2 0 012 2v2"/>
+            <rect x="3" y="8" width="18" height="4" rx="1"/>
+          </svg>
+        </div>
+        <div>
+          <div class="gx-modal-title"><%= tr.connect_title %></div>
+          <div class="gx-modal-sub"><%= tr.connect_sub %></div>
+        </div>
+      </div>
+      <button class="gx-modal-close" onclick="closeConnectModal()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="gx-modal-body">
+
+      <!-- Status chips -->
+      <div class="gx-usb-status-row">
+        <div class="gx-usb-chip" id="usb-chip-api">
+          <span class="gx-usb-chip-dot" id="usb-api-dot"></span>
+          <span id="usb-api-label">Web Serial API</span>
+        </div>
+        <div class="gx-usb-chip" id="usb-chip-conn">
+          <span class="gx-usb-chip-dot" id="usb-conn-dot"></span>
+          <span id="usb-conn-label"><%= tr.connect_btn || 'Nincs kapcsolat' %></span>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="gx-modal-divider"></div>
+
+      <!-- Saved devices -->
+      <div class="gx-modal-section-label"><%= tr.connect_saved %></div>
+      <div id="gx-port-list" class="gx-port-list"></div>
+
+      <!-- New device -->
+      <div class="gx-modal-section-label" style="margin-top:14px"><%= tr.connect_new %></div>
+      <button onclick="requestNewPort()" class="gx-new-port-btn" id="gx-new-port-btn">
+        <div class="gx-new-port-icon">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v11M2 7.5h11" stroke="#0a84ff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div class="gx-new-port-text">
+          <div class="gx-new-port-main"><%= tr.connect_allow %></div>
+          <div class="gx-new-port-hint">Chrome / Edge – Web Serial API</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="opacity:.35;flex-shrink:0"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="gx-modal-footer">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0;opacity:.6"><circle cx="6" cy="6" r="5" stroke="#ffd60a" stroke-width="1.2"/><path d="M6 5.5v3M6 4h.01" stroke="#ffd60a" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <span><%= tr.connect_info %></span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── DATE PICKER MODAL ── -->
+<%
+  var today2 = new Date().toISOString().slice(0,10);
+  var MONTH_NAMES2 = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+  var groups2 = {}, groupOrder2 = [];
+  available_dates.forEach(function(d){
+    var ym = d.slice(0,7);
+    if (!groups2[ym]) { groups2[ym] = []; groupOrder2.push(ym); }
+    groups2[ym].push(d);
+  });
+%>
+<div id="gx-date-modal" class="gx-modal-overlay">
+  <div class="gx-modal-panel gdm-panel">
+    <!-- Header -->
+    <div class="gx-modal-header">
+      <div class="gx-modal-title-wrap">
+        <div class="gx-modal-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="2" width="14" height="13" rx="2.5" stroke="#0a84ff" stroke-width="1.4"/>
+            <path d="M1 6h14" stroke="#0a84ff" stroke-width="1.4"/>
+            <path d="M5 1v2M11 1v2" stroke="#0a84ff" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="gx-modal-title">Nap kiválasztása</div>
+          <div class="gx-modal-sub"><%= available_dates.length %> elérhető nap</div>
+        </div>
+      </div>
+      <button class="gx-modal-close" onclick="closeDateModal()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="gdm-body" id="gdm-scroll">
+      <% groupOrder2.forEach(function(ym){ %>
+        <%
+          var parts2 = ym.split('-');
+          var mLabel2 = MONTH_NAMES2[parseInt(parts2[1],10)-1] + ' ' + parts2[0];
+        %>
+        <div class="gdm-month-label"><%= mLabel2 %></div>
+        <div class="gdp-month-grid gdm-grid">
+          <% groups2[ym].forEach(function(date){
+            var day2 = parseInt(date.slice(8,10),10);
+            var isActive2 = date === default_date;
+            var isToday2  = date === today2;
+          %>
+          <div class="gdp-day <%= isActive2?'active':'' %> <%= isToday2?'today':'' %>"
+               data-val="<%= date %>"
+               title="<%= date %>"
+               onclick="selectDate('<%= date %>')">
+            <span class="gdp-day-num"><%= day2 %></span>
+            <% if(isToday2){ %><span class="gdp-today-dot"></span><% } %>
+          </div>
+          <% }); %>
+        </div>
+      <% }); %>
+    </div>
+
+    <!-- Footer -->
+    <div class="gdm-footer">
+      <div class="gdm-selected-label">Kiválasztva:</div>
+      <div class="gdm-selected-val" id="gdm-selected-val"><%= default_date %></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.gdm-panel{width:min(360px,92vw);max-height:90vh;display:flex;flex-direction:column}
+.gdm-body{
+  flex:1;overflow-y:auto;padding:10px 18px 6px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.10) transparent;
+}
+.gdm-body::-webkit-scrollbar{width:4px}
+.gdm-body::-webkit-scrollbar-track{background:transparent}
+.gdm-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:4px}
+.gdm-month-label{
+  font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+  color:#0a84ff;padding:10px 2px 6px;margin-top:2px;
+}
+.gdm-month-label:first-child{padding-top:4px;margin-top:0}
+.gdm-grid{gap:5px;margin-bottom:6px}
+.gdm-footer{
+  padding:12px 18px 14px;
+  border-top:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.gdm-selected-label{font-size:11px;color:rgba(255,255,255,.35)}
+.gdm-selected-val{
+  font-size:13px;font-weight:700;color:var(--blue,#0a84ff);
+  font-variant-numeric:tabular-nums;letter-spacing:.3px;
+}
+/* Day overrides for modal */
+.gdm-grid .gdp-day{
+  font-size:13px;border-radius:10px;
+  color:rgba(255,255,255,.75);
+}
+.gdm-grid .gdp-day:hover{background:rgba(255,255,255,.09);color:#fff;transform:scale(1.06)}
+.gdm-grid .gdp-day.active{
+  background:linear-gradient(135deg,rgba(10,132,255,.35),rgba(10,132,255,.20));
+  color:#5ac8fa;
+  box-shadow:0 0 0 1.5px rgba(10,132,255,.5) inset,0 2px 10px rgba(10,132,255,.20);
+}
+.gdm-grid .gdp-day.active:hover{background:rgba(10,132,255,.38)}
+.gdm-grid .gdp-today-dot{background:#30d158;box-shadow:0 0 6px rgba(48,209,88,.7)}
+.gdm-grid .gdp-day.active .gdp-today-dot{background:#5ac8fa}
+</style>
+
+<style>
+/* ── CONNECT MODAL ── */
+.gx-modal-overlay {
+  display:none;position:fixed;inset:0;z-index:1000;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,5,0.7);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.gx-modal-overlay.active { display:flex; }
+
+.gx-modal-panel {
+  width:min(420px,93vw);
+  background:linear-gradient(160deg,#0f1520 0%,#080d15 100%);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:20px;
+  box-shadow:0 40px 100px rgba(0,0,0,0.8),0 0 0 1px rgba(255,255,255,0.04) inset;
+  overflow:hidden;
+  animation:gxModalIn .24s cubic-bezier(.34,1.4,.64,1);
+}
+@keyframes gxModalIn { from{opacity:0;transform:scale(.92) translateY(14px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+.gx-modal-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.gx-modal-title-wrap { display:flex;align-items:center;gap:12px; }
+.gx-modal-icon {
+  width:38px;height:38px;border-radius:11px;
+  background:rgba(10,132,255,0.12);border:1px solid rgba(10,132,255,0.25);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.gx-modal-title { font-size:14px;font-weight:700;color:rgba(255,255,255,0.92);letter-spacing:-.2px; }
+.gx-modal-sub { font-size:11px;color:rgba(255,255,255,0.30);margin-top:2px; }
+.gx-modal-close {
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+  color:rgba(255,255,255,0.35);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.gx-modal-close:hover { background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.7); }
+
+.gx-modal-body { padding:16px 20px; }
+
+/* Status chips */
+.gx-usb-status-row { display:flex;gap:8px;margin-bottom:14px; }
+.gx-usb-chip {
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:20px;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  font-size:10.5px;font-weight:600;color:rgba(255,255,255,0.45);
+}
+.gx-usb-chip-dot {
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,0.2);flex-shrink:0;
+}
+.gx-usb-chip-dot.green { background:#30d158;box-shadow:0 0 6px rgba(48,209,88,.6); }
+.gx-usb-chip-dot.blue  { background:#0a84ff;box-shadow:0 0 6px rgba(10,132,255,.6); }
+.gx-usb-chip-dot.red   { background:#ff453a;box-shadow:0 0 6px rgba(255,69,58,.5); }
+.gx-usb-chip-dot.pulse { animation:gxPulse 1.4s ease-in-out infinite; }
+@keyframes gxPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.gx-modal-divider { height:1px;background:rgba(255,255,255,0.06);margin:0 0 14px; }
+.gx-modal-section-label {
+  font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  color:rgba(255,255,255,0.25);margin-bottom:8px;
+}
+
+/* Port list */
+.gx-port-list { display:flex;flex-direction:column;gap:6px;min-height:60px; }
+
+.gx-port-item {
+  display:flex;align-items:center;gap:11px;
+  padding:11px 13px;border-radius:12px;
+  background:rgba(48,209,88,0.05);
+  border:1px solid rgba(48,209,88,0.15);
+  transition:all .15s;cursor:default;
+}
+.gx-port-item:hover { background:rgba(48,209,88,0.09);border-color:rgba(48,209,88,0.25); }
+.gx-port-icon {
+  width:34px;height:34px;border-radius:9px;
+  background:rgba(48,209,88,0.10);border:1px solid rgba(48,209,88,0.22);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.gx-port-icon i { color:#30d158;font-size:13px; }
+.gx-port-info { flex:1;min-width:0; }
+.gx-port-name { font-size:12px;font-weight:600;color:rgba(255,255,255,0.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.gx-port-sub { font-size:10px;color:rgba(255,255,255,0.30);margin-top:2px; }
+.gx-port-btn {
+  padding:6px 14px;border-radius:8px;
+  background:rgba(10,132,255,0.14);border:1px solid rgba(10,132,255,0.30);
+  color:#0a84ff;font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:all .15s;flex-shrink:0;
+}
+.gx-port-btn:hover { background:rgba(10,132,255,0.24);border-color:rgba(10,132,255,0.50); }
+
+.gx-port-empty {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:14px 0;gap:6px;
+  font-size:11px;color:rgba(255,255,255,0.22);text-align:center;
+}
+.gx-port-empty svg { opacity:.2; }
+.gx-port-loading {
+  display:flex;align-items:center;gap:8px;padding:14px 0;
+  font-size:11px;color:rgba(255,255,255,0.28);justify-content:center;
+}
+
+/* New device button */
+.gx-new-port-btn {
+  width:100%;display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:12px;cursor:pointer;font-family:inherit;
+  background:rgba(10,132,255,0.07);
+  border:1px solid rgba(10,132,255,0.20);
+  transition:all .18s;text-align:left;
+}
+.gx-new-port-btn:hover {
+  background:rgba(10,132,255,0.13);
+  border-color:rgba(10,132,255,0.38);
+  transform:translateY(-1px);
+  box-shadow:0 4px 16px rgba(10,132,255,0.15);
+}
+.gx-new-port-btn:active { transform:translateY(0); }
+.gx-new-port-icon {
+  width:36px;height:36px;border-radius:10px;flex-shrink:0;
+  background:rgba(10,132,255,0.12);border:1px solid rgba(10,132,255,0.25);
+  display:flex;align-items:center;justify-content:center;
+}
+.gx-new-port-main { font-size:12px;font-weight:600;color:#0a84ff; }
+.gx-new-port-hint { font-size:10px;color:rgba(255,255,255,0.28);margin-top:1px; }
+
+/* Footer */
+.gx-modal-footer {
+  display:flex;align-items:flex-start;gap:9px;
+  padding:10px 20px 16px;
+  border-top:1px solid rgba(255,255,255,0.05);
+  font-size:10.5px;color:rgba(255,255,255,0.30);line-height:1.55;
+}
+</style>
+</body>
+</html>

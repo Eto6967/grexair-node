@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GrexAir Kvíz</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg0: #02040a;
+  --bg1: #060912;
+  --g1: #00d4aa;
+  --g2: #0a84ff;
+  --g3: #bf5af2;
+  --g4: #ff9f0a;
+  --red: #ff453a;
+  --text: rgba(255,255,255,0.93);
+  --text2: rgba(255,255,255,0.55);
+  --text3: rgba(255,255,255,0.28);
+  --glass-bg: rgba(255,255,255,0.055);
+  --glass-border: rgba(255,255,255,0.10);
+  --glass-hi: rgba(255,255,255,0.08);
+  --blur: blur(40px) saturate(180%);
+  --r: 20px;
+  --rs: 14px;
+  --rp: 999px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, 'SF Pro Display', sans-serif;
+  background: var(--bg0);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── AURORA ── */
+.aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.ao { position: absolute; border-radius: 50%; filter: blur(100px); animation: aoF 18s ease-in-out infinite; }
+.ao1 { width: 600px; height: 600px; top: -200px; left: -150px; background: radial-gradient(circle, rgba(0,212,170,0.20) 0%, transparent 65%); animation-delay: 0s; }
+.ao2 { width: 500px; height: 500px; top: -100px; right: -100px; background: radial-gradient(circle, rgba(10,132,255,0.15) 0%, transparent 65%); animation-delay: -6s; }
+.ao3 { width: 550px; height: 550px; bottom: -200px; left: 20%; background: radial-gradient(circle, rgba(191,90,242,0.12) 0%, transparent 65%); animation-delay: -12s; }
+@keyframes aoF { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(20px,-15px) scale(1.03)} 66%{transform:translate(-15px,12px) scale(0.97)} }
+
+/* ── GLASS CARD ── */
+.card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%);
+  pointer-events: none;
+}
+.card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18) 40%, rgba(255,255,255,0.06) 70%, transparent);
+  border-radius: var(--r) var(--r) 0 0;
+}
+
+/* ── PRELOADER ── */
+#preloader {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg0);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+  transition: opacity 0.6s, visibility 0.6s;
+}
+#preloader.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.pre-logo { position: relative; }
+.pre-logo-ring {
+  width: 88px; height: 88px; border-radius: 24px;
+  background: linear-gradient(135deg, var(--g1), var(--g2));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 1px rgba(0,212,170,0.3), 0 0 60px rgba(0,212,170,0.25);
+  animation: prePulse 2.5s ease-in-out infinite;
+}
+@keyframes prePulse { 0%,100%{box-shadow:0 0 0 1px rgba(0,212,170,0.3),0 0 40px rgba(0,212,170,0.20)} 50%{box-shadow:0 0 0 1px rgba(0,212,170,0.5),0 0 70px rgba(0,212,170,0.40)} }
+.pre-logo-ring img { width: 64px; height: 64px; border-radius: 16px; object-fit: contain; }
+.pre-name { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+.pre-name span { background: linear-gradient(135deg, var(--g1), var(--g2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.pre-sub { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--text3); }
+.pre-clock { font-size: 15px; color: var(--text2); font-variant-numeric: tabular-nums; font-weight: 500; }
+.pre-bar { width: 100px; height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+.pre-bar-fill { height: 100%; background: linear-gradient(90deg, var(--g1), var(--g2)); animation: preBar 1.4s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes preBar { from{width:0} to{width:100%} }
+
+/* ── SCREENS ── */
+.screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 440px; margin: 0 auto; padding: 32px 16px 40px; gap: 14px; position: relative; z-index: 1; }
+.screen.on { display: flex; animation: scIn 0.4s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes scIn { from{opacity:0;transform:translateY(16px) scale(0.97)} to{opacity:1;transform:none} }
+
+/* ── TOPBAR ── */
+.topbar { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 4px; }
+.topbar-logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--g1), var(--g2)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.topbar-logo img { width: 22px; height: 22px; object-fit: contain; }
+.topbar-name { font-size: 15px; font-weight: 700; background: linear-gradient(90deg, var(--g1), var(--g2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+/* ── NAME SCREEN ── */
+.ns-title { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; margin-bottom: 6px; }
+.ns-sub { font-size: 14px; color: var(--text2); line-height: 1.55; margin-bottom: 24px; }
+.ns-input {
+  width: 100%; padding: 15px 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--rs);
+  color: var(--text); font-size: 16px; font-weight: 500;
+  outline: none; font-family: inherit;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.ns-input:focus {
+  border-color: rgba(0,212,170,0.5);
+  background: rgba(0,212,170,0.05);
+  box-shadow: 0 0 0 3px rgba(0,212,170,0.12);
+}
+.ns-input::placeholder { color: var(--text3); }
+
+.btn-primary {
+  width: 100%; margin-top: 12px; padding: 16px;
+  background: linear-gradient(135deg, var(--g1) 0%, #00b890 50%, var(--g2) 100%);
+  border: none; border-radius: var(--rs);
+  color: #fff; font-size: 16px; font-weight: 700; letter-spacing: -0.2px;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 4px 24px rgba(0,212,170,0.30), 0 1px 0 rgba(255,255,255,0.15) inset;
+  transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+  position: relative; overflow: hidden;
+}
+.btn-primary::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 50%); border-radius:inherit; pointer-events:none; }
+.btn-primary:active { transform: scale(0.97); box-shadow: 0 2px 12px rgba(0,212,170,0.25); }
+.btn-primary:disabled { opacity: 0.3; cursor: default; }
+
+/* ── WAIT SCREEN ── */
+.wait-spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.08);
+  border-top-color: var(--g1);
+  animation: spin 0.9s linear infinite; margin: 0 auto 16px;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+.wait-you { font-size: 13px; font-weight: 600; color: var(--g1); text-align: center; margin-bottom: 6px; }
+.wait-title { font-size: 19px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+.wait-sub { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.55; }
+.wait-pulse { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 16px; }
+.pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g1); animation: pulseDot 1.2s ease-in-out infinite; }
+.pulse-dot:nth-child(2) { animation-delay: 0.2s; }
+.pulse-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulseDot { 0%,100%{opacity:0.2;transform:scale(0.7)} 50%{opacity:1;transform:scale(1)} }
+
+/* ── QUIZ SCREEN ── */
+.q-progress-wrap { width: 100%; display: flex; align-items: center; gap: 10px; }
+.q-badge {
+  padding: 5px 12px; border-radius: var(--rp);
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.10);
+  font-size: 11px; font-weight: 700; color: var(--text2); letter-spacing: 0.5px; white-space: nowrap;
+}
+.q-pbar { flex: 1; height: 3px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
+.q-pbar-fill { height: 100%; background: linear-gradient(90deg, var(--g1), var(--g2)); border-radius: 3px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+
+.q-card { padding: 22px 20px; width: 100%; }
+.q-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+.q-text { font-size: 18px; font-weight: 700; line-height: 1.45; letter-spacing: -0.2px; }
+
+.opts { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+.opt {
+  position: relative; overflow: hidden;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: var(--rs);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+}
+.opt::after { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.10) 50%,transparent); }
+.opt:active { transform: scale(0.98); }
+.opt.selected { border-color: rgba(0,212,170,0.45); background: rgba(0,212,170,0.07); }
+.opt.voted { cursor: default; }
+
+.opt-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, rgba(0,212,170,0.10), rgba(10,132,255,0.06));
+  transition: width 0.55s cubic-bezier(.4,0,.2,1);
+  pointer-events: none; z-index: 0;
+}
+.opt-inner { display: flex; align-items: center; gap: 12px; padding: 13px 14px; position: relative; z-index: 1; }
+.opt-key {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+  color: var(--text2); font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.opt.selected .opt-key { background: var(--g1); border-color: var(--g1); color: #000; }
+.opt-text { font-size: 14px; font-weight: 500; color: var(--text); flex: 1; line-height: 1.35; }
+.opt-pct { font-size: 12px; font-weight: 700; color: var(--text3); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.voted-chip {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 18px; border-radius: var(--rp);
+  background: rgba(0,212,170,0.10); border: 1px solid rgba(0,212,170,0.22);
+  font-size: 13px; font-weight: 600; color: var(--g1);
+  animation: scIn 0.3s ease both;
+}
+
+/* ── END SCREEN ── */
+.end-icon {
+  width: 64px; height: 64px; border-radius: 20px;
+  background: linear-gradient(135deg, var(--g1), var(--g2));
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 8px 32px rgba(0,212,170,0.30);
+}
+.end-title { font-size: 22px; font-weight: 800; text-align: center; letter-spacing: -0.3px; margin-bottom: 8px; }
+.end-sub { font-size: 14px; color: var(--text2); text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="aurora">
+  <div class="ao ao1"></div>
+  <div class="ao ao2"></div>
+  <div class="ao ao3"></div>
+</div>
+
+<!-- PRELOADER -->
+<div id="preloader">
+  <div class="pre-logo">
+    <div class="pre-logo-ring">
+      <img src="/static/logo.png" alt="GrexAir" onerror="this.style.display='none'">
+    </div>
+  </div>
+  <div class="pre-name"><span>GrexAir</span></div>
+  <div class="pre-sub">CO₂ Monitoring · Quiz</div>
+  <div class="pre-clock" id="pre-clock">--:--:--</div>
+  <div class="pre-bar"><div class="pre-bar-fill"></div></div>
+</div>
+
+<!-- NAME SCREEN -->
+<div class="screen" id="s-name">
+  <div class="topbar">
+    <div class="topbar-logo"><img src="/static/logo.png" alt="" onerror="this.style.display='none'"></div>
+    <span class="topbar-name">GrexAir</span>
+  </div>
+  <div class="card" style="padding:26px 22px;width:100%">
+    <div class="ns-title">Üdvözlünk! 👋</div>
+    <div class="ns-sub">Add meg a neved a részvételhez. Regisztráció nem szükséges.</div>
+    <input class="ns-input" id="name-input" type="text" placeholder="Pl. Kovács Péter" maxlength="32" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="btn-primary" id="join-btn" onclick="joinQuiz(false)">Csatlakozás →</button>
+  </div>
+</div>
+
+<!-- WAIT SCREEN -->
+<div class="screen" id="s-wait">
+  <div class="topbar">
+    <div class="topbar-logo"><img src="/static/logo.png" alt="" onerror="this.style.display='none'"></div>
+    <span class="topbar-name">GrexAir</span>
+  </div>
+  <div class="card" style="padding:28px 22px;width:100%">
+    <div class="wait-spinner"></div>
+    <div class="wait-you" id="wait-you"></div>
+    <div class="wait-title">Várakozás az előadóra…</div>
+    <div class="wait-sub" id="wait-sub">Az előadó hamarosan elindítja a kvízt. Tartsd nyitva ezt az oldalt!</div>
+    <div class="wait-pulse">
+      <div class="pulse-dot"></div>
+      <div class="pulse-dot"></div>
+      <div class="pulse-dot"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ SCREEN -->
+<div class="screen" id="s-quiz">
+  <div class="topbar">
+    <div class="topbar-logo"><img src="/static/logo.png" alt="" onerror="this.style.display='none'"></div>
+    <span class="topbar-name">GrexAir</span>
+  </div>
+  <div class="q-progress-wrap">
+    <div class="q-badge" id="q-badge">1 / 5</div>
+    <div class="q-pbar"><div class="q-pbar-fill" id="q-pbar" style="width:20%"></div></div>
+  </div>
+  <div class="card q-card">
+    <div class="q-label" id="q-label">1. KÉRDÉS</div>
+    <div class="q-text" id="q-text">…</div>
+  </div>
+  <div class="opts" id="opts"></div>
+  <div class="voted-chip" id="voted-chip" style="display:none">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7 L5.5 10.5 L12 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Szavazatod rögzítve — várd az előadót!
+  </div>
+</div>
+
+<!-- END SCREEN -->
+<div class="screen" id="s-end">
+  <div class="card" style="padding:32px 24px;width:100%;text-align:center">
+    <div class="end-icon">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <path d="M6 16 L12.5 22.5 L26 9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="end-title">Köszönjük a részvételt!</div>
+    <div class="end-sub">Figyelj az előadóra — most jön a magyarázat és a helyes válaszok.</div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const QS = [
+  { q:"Szerinted most ebben a teremben mennyi a CO₂ szint?", opts:["~400 ppm (mint kinn)","~700 ppm","~1200 ppm","2000 ppm felett"] },
+  { q:"Érzed-e ha magas a CO₂ szint a levegőben?", opts:["Igen, szúró szagot érzek","Igen, nehezebben lélegzem","Nem, teljesen érzékelhetetlen","Csak ha nagyon magas"] },
+  { q:"Szerinted mennyivel teljesítesz jobban jól szellőztetett levegőben egy dolgozaton?", opts:["Alig változik","Kicsit jobb (~20%)","Jelentősen jobb (~50%)","Közel kétszer olyan jó"] },
+  { q:"Szerinted rosszul szellőztetett teremben (1400+ ppm) mennyivel romlik a problémamegoldó képességed?", opts:["Alig változik","~15%-kal romlik","~30%-kal romlik","Több mint a fele elvész"] },
+  { q:"Szerinted a stratégiai gondolkodás mennyivel jobb tiszta levegőben?", opts:["Alig változik","Kétszer olyan jó","Négyszer olyan jó","Tízszer olyan jó"] }
+];
+
+let myName = localStorage.getItem('gx_quiz_name') || '';
+let mySID  = localStorage.getItem('gx_quiz_sid');
+if (!mySID) { mySID = Math.random().toString(36).slice(2,15); localStorage.setItem('gx_quiz_sid', mySID); }
+let myVotes = new Array(QS.length).fill(-1);
+let currentQ = -1;
+let socket;
+
+/* Clock */
+const tick = () => { const t=new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); document.getElementById('pre-clock').textContent=t; };
+tick(); setInterval(tick, 1000);
+
+/* Preloader */
+setTimeout(() => {
+  document.getElementById('preloader').classList.add('out');
+  if (myName) joinQuiz(true);
+  else showScreen('name');
+}, 1600);
+
+document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') joinQuiz(false); });
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  const el = document.getElementById('s-'+id);
+  if (el) { el.classList.add('on'); }
+}
+
+function joinQuiz(auto = false) {
+  if (!auto) {
+    const v = document.getElementById('name-input').value.trim();
+    if (!v) { document.getElementById('name-input').focus(); return; }
+    myName = v;
+    localStorage.setItem('gx_quiz_name', myName);
+  }
+  document.getElementById('join-btn').disabled = true;
+  document.getElementById('wait-you').textContent = 'Beléptél mint: ' + myName;
+  document.getElementById('wait-sub').textContent = auto ? 'Folyamatban lévő kvíz visszatöltése…' : 'Az előadó hamarosan elindítja a kvízt. Tartsd nyitva ezt az oldalt!';
+  showScreen('wait');
+
+  socket = io();
+  socket.emit('quiz_join', { name: myName, sessionId: mySID });
+
+  socket.on('quiz_restore', data => {
+    myVotes = data.myVotes || myVotes;
+    if (data.currentQ === 99) showScreen('end');
+    else if (data.currentQ < 0) showScreen('wait');
+  });
+
+  socket.on('quiz_question', ({ index, votes }) => {
+    currentQ = index;
+    renderQ(index, votes);
+  });
+
+  socket.on('quiz_votes', ({ question, votes }) => {
+    if (question === currentQ) updateBars(votes);
+  });
+
+  socket.on('quiz_end', () => showScreen('end'));
+
+  socket.on('quiz_reset', () => {
+    myVotes = new Array(QS.length).fill(-1);
+    currentQ = -1;
+    document.getElementById('wait-sub').textContent = 'Az előadó hamarosan elindítja a kvízt. Tartsd nyitva ezt az oldalt!';
+    showScreen('wait');
+  });
+}
+
+function renderQ(idx, votes) {
+  const q = QS[idx];
+  document.getElementById('q-badge').textContent = (idx+1) + ' / ' + QS.length;
+  document.getElementById('q-label').textContent  = (idx+1) + '. KÉRDÉS';
+  document.getElementById('q-text').textContent   = q.q;
+  document.getElementById('q-pbar').style.width   = ((idx+1)/QS.length*100) + '%';
+
+  const voted = myVotes[idx] >= 0;
+  const total = votes ? votes.reduce((a,b)=>a+b,0) : 0;
+
+  document.getElementById('opts').innerHTML = q.opts.map((o,i) => {
+    const pct = (voted && total > 0) ? Math.round(votes[i]/total*100) : 0;
+    const sel = myVotes[idx]===i ? 'selected' : '';
+    const vc  = voted ? 'voted' : '';
+    return `<div class="opt ${sel} ${vc}" onclick="vote(${i})">
+      <div class="opt-fill" style="width:${pct}%"></div>
+      <div class="opt-inner">
+        <div class="opt-key">${'ABCD'[i]}</div>
+        <div class="opt-text">${o}</div>
+        ${voted ? `<div class="opt-pct">${pct}%</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('voted-chip').style.display = voted ? 'flex' : 'none';
+  showScreen('quiz');
+}
+
+function vote(i) {
+  if (myVotes[currentQ] >= 0 || currentQ < 0) return;
+  myVotes[currentQ] = i;
+  socket.emit('quiz_vote', { question: currentQ, option: i });
+  document.getElementById('voted-chip').style.display = 'flex';
+  document.querySelectorAll('.opt').forEach((el, idx) => {
+    el.classList.add('voted');
+    if (idx === i) el.classList.add('selected');
+  });
+}
+
+function updateBars(votes) {
+  if (currentQ < 0 || myVotes[currentQ] < 0) return;
+  const total = votes.reduce((a,b)=>a+b,0);
+  document.querySelectorAll('.opt').forEach((el, i) => {
+    const pct = total > 0 ? Math.round(votes[i]/total*100) : 0;
+    const fill = el.querySelector('.opt-fill');
+    const pctEl = el.querySelector('.opt-pct');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+  });
+}
+</script>
+</body>
+</html>

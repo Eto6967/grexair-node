@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<script>
+  if (prompt("Admin felület azonosítás.\nKérlek add meg a jelszót:") !== "01") {
+      document.documentElement.innerHTML = "<div style='display:flex;height:100vh;justify-content:center;align-items:center;background:#061520;color:#D85A30;font-family:sans-serif;font-size:24px;font-weight:bold;'>Hozzáférés megtagadva!</div>";
+      window.stop(); // Azonnal leállítja az oldal betöltését
+      throw new Error("Hibás jelszó");
+  }
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GrexAir Kvíz (admin)</title>
+<style>
+:root{
+  --green:#1D9E75;--green-deep:#0F6E56;--green-light:#9FE1CB;--green-pale:#E1F5EE;
+  --dark:#061520;--dark2:#0A2233;--dark3:#0F2D42;--dark4:#1A3A52;
+  --text:#E8F5F0;--muted:#6BAF98;--red:#D85A30;--amber:#EF9F27;
+  --glass:rgba(15,45,66,0.75);--gb:rgba(29,158,117,0.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--dark);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:var(--text);overflow:hidden}
+body{background:radial-gradient(ellipse at 20% 0%,rgba(29,158,117,.1) 0%,transparent 60%),var(--dark)}
+
+/* LOADING */
+#loading{position:fixed;inset:0;z-index:100;background:var(--dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .6s,visibility .6s}
+#loading.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.logo-img-big{width:80px;height:80px;border-radius:22px;object-fit:cover;animation:pulse 2.5s ease-in-out infinite;box-shadow:0 0 40px rgba(29,158,117,.4)}
+@keyframes pulse{0%,100%{box-shadow:0 0 30px rgba(29,158,117,.3)}50%{box-shadow:0 0 55px rgba(29,158,117,.6)}}
+.load-txt{display:flex;flex-direction:column;align-items:center;gap:4px}
+.load-brand{font-size:26px;font-weight:700;color:var(--green)}
+.load-sub{font-size:11px;color:var(--muted);letter-spacing:2px}
+.load-clock{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.load-bar-wrap{width:120px;height:2px;background:var(--dark4);border-radius:2px;overflow:hidden}
+.load-bar{height:100%;background:var(--green);animation:lb 1.4s ease forwards}
+@keyframes lb{from{width:0}to{width:100%}}
+
+/* APP */
+.app{display:none;flex-direction:column;height:100vh}
+.app.active{display:flex}
+
+/* TOPBAR */
+.topbar{background:rgba(10,34,51,.95);border-bottom:1px solid var(--gb);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px);flex-shrink:0}
+.tb-left{display:flex;align-items:center;gap:10px}
+.tb-logo-img{width:28px;height:28px;border-radius:8px;object-fit:cover}
+.tb-brand{font-size:15px;font-weight:700;color:var(--green)}
+.tb-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px;background:rgba(29,158,117,.15);color:var(--green);border:1px solid var(--gb);letter-spacing:.5px}
+.tb-right{display:flex;align-items:center;gap:10px}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--red);transition:background .3s}
+.conn-dot.ok{background:var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.conn-txt,.tb-clock{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* LAYOUT */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* LEFT */
+.left{width:260px;flex-shrink:0;border-right:1px solid var(--gb);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.panel{background:var(--glass);border:1px solid var(--gb);border-radius:14px;padding:14px;backdrop-filter:blur(16px)}
+.panel-title{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+
+.stat-row{display:flex;gap:8px}
+.stat{flex:1;text-align:center;background:rgba(10,34,51,.6);border-radius:9px;padding:9px 4px}
+.stat-val{font-size:20px;font-weight:700;color:var(--green)}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:2px}
+
+.part-list{display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto}
+.part{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:7px;background:rgba(10,34,51,.5);font-size:12px}
+.part-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+.part-name{flex:1;color:var(--text)}
+.part-voted{font-size:10px;color:var(--green);font-weight:700}
+.no-parts{font-size:12px;color:var(--muted);text-align:center;padding:8px}
+
+.ctrl{display:flex;flex-direction:column;gap:7px}
+.btn{padding:10px 14px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:opacity .15s,transform .1s;width:100%}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.3;cursor:default}
+.btn-start{background:linear-gradient(135deg,var(--green),var(--green-deep));color:#fff;box-shadow:0 4px 16px rgba(29,158,117,.3)}
+.btn-next{background:rgba(29,158,117,.15);color:var(--green);border:1px solid var(--gb)}
+.btn-reveal{background:rgba(239,159,39,.15);color:var(--amber);border:1px solid rgba(239,159,39,.2)}
+.btn-reset{background:rgba(216,90,48,.1);color:var(--red);border:1px solid rgba(216,90,48,.2)}
+
+/* RIGHT */
+.right{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+
+/* IDLE */
+.idle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+.idle img{width:56px;height:56px;border-radius:16px;object-fit:cover;opacity:.7}
+.idle-title{font-size:20px;font-weight:700}
+.idle-sub{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* Q CARD */
+.q-card{background:var(--glass);border:1px solid var(--gb);border-radius:18px;padding:22px;backdrop-filter:blur(20px)}
+.q-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.q-idx{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.q-total{font-size:12px;color:var(--muted)}
+.q-text{font-size:19px;font-weight:700;line-height:1.4;margin-bottom:22px}
+
+.pbar-top{height:3px;background:var(--dark4);border-radius:3px;margin-bottom:14px}
+.pbar-top-fill{height:100%;background:var(--green);border-radius:3px;transition:width .4s}
+
+/* CHART */
+.chart{display:flex;flex-direction:column;gap:10px}
+.chart-row{display:flex;align-items:center;gap:10px}
+.chart-key{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:var(--dark4);color:var(--green-light);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.chart-key.correct{background:var(--green);color:#fff}
+.chart-bar-wrap{flex:1}
+.chart-label{font-size:12px;color:var(--text);margin-bottom:4px;font-weight:500}
+.chart-bg{height:26px;background:rgba(10,34,51,.7);border-radius:7px;overflow:hidden;position:relative}
+.chart-fill{height:100%;background:rgba(29,158,117,.3);border-radius:7px;transition:width .5s cubic-bezier(.4,0,.2,1);position:relative}
+.chart-fill.correct{background:rgba(29,158,117,.55)}
+.chart-pct{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:var(--muted)}
+.chart-cnt{font-size:11px;color:var(--muted);min-width:20px;text-align:right}
+
+.explain{background:rgba(13,47,31,.7);border:1px solid var(--green);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:13px;color:var(--green-light);line-height:1.6;display:none}
+.explain.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <img class="logo-img-big" src="/static/logo.png" alt="GrExAir" onerror="this.style.background='linear-gradient(135deg,#1D9E75,#0F6E56)'">
+  <div class="load-txt">
+    <div class="load-brand">GrexAir</div>
+    <div class="load-sub">ADMIN </div>
+  </div>
+  <div class="load-clock" id="load-clock">--:--:--</div>
+  <div class="load-bar-wrap"><div class="load-bar"></div></div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="tb-left">
+      <img class="tb-logo-img" src="/static/logo.png" alt="" onerror="this.style.display='none'">
+      <span class="tb-brand">GrexAir</span>
+      <span class="tb-badge">ADMIN</span>
+    </div>
+    <div class="tb-right">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span class="conn-txt" id="conn-txt">Kapcsolódás...</span>
+      <span class="tb-clock" id="tb-clock">--:--:--</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="left">
+      <div class="panel">
+        <div class="panel-title">Statisztika</div>
+        <div class="stat-row">
+          <div class="stat"><div class="stat-val" id="s-users">0</div><div class="stat-lbl">Résztvevő</div></div>
+          <div class="stat"><div class="stat-val" id="s-voted">0</div><div class="stat-lbl">Szavazott</div></div>
+          <div class="stat"><div class="stat-val" id="s-q">—</div><div class="stat-lbl">Kérdés</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Résztvevők</div>
+        <div class="part-list" id="part-list">
+          <div class="no-parts">Még senki sem csatlakozott</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Vezérlés</div>
+        <div class="ctrl">
+          <button class="btn btn-start" id="btn-start" onclick="adminStart()">Kvíz indítása</button>
+          <button class="btn btn-reveal" id="btn-reveal" onclick="adminReveal()" disabled>Helyes válasz felfedése</button>
+          <button class="btn btn-next" id="btn-next" onclick="adminNext()" disabled>Következő kérdés →</button>
+          <button class="btn btn-reset" onclick="adminReset()">Újraindítás</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="right" id="right">
+      <div class="idle" id="idle">
+        <img src="/static/logo.png" alt="" onerror="this.style.display='none'">
+        <div class="idle-title">Kvíz készenléti állapot</div>
+        <div class="idle-sub">Várj amíg a résztvevők csatlakoznak,<br>majd nyomd meg az Indítás gombot.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const QS = [
+  { q:"Szerinted most ebben a teremben mennyi a CO₂-szint?", opts:["~400 ppm (mint kint)","~700 ppm","~1200 ppm","2000 ppm felett"], correct:2, explain:"Egy tipikus téli tanteremben, emberi jelenlét esetén a CO₂ gyorsan 1000–1500 ppm fölé emelkedik. A GrexAir valódi mérése 2269 ppm-es napi csúcsot rögzített!" },
+{ q:"Érzed-e, ha magas a CO₂-szint a levegőben?", opts:["Igen, szúró szagot érzek","Igen, nehezebben lélegzem","Nem, teljesen érzékelhetetlen","Csak akkor, ha nagyon magas"], correct:2, explain:"A CO₂ teljesen érzékelhetetlen: szagtalan, íztelen és láthatatlan. Az agyunk már rosszabbul működik, mielőtt bármit észrevennénk — ez teszi annyira veszélyessé." },
+{ q:"Szerinted mennyivel teljesítesz jobban jól szellőztetett levegőben egy dolgozat során?", opts:["Alig változik","Kicsit jobb (~20%)","Jelentősen jobb (~50%)","Közel kétszer olyan jól"], correct:3, explain:"Allen et al. (2016): Zöld+ környezetben (550 ppm) az átlagos kognitív teljesítmény közel kétszerese a hagyományos irodai környezethez képest." },
+{ q:"Szerinted rosszul szellőztetett teremben (1400+ ppm) mennyivel romlik a problémamegoldó képességed?", opts:["Alig változik","~15%-kal romlik","~30%-kal romlik","Több mint a fele elvész"], correct:1, explain:"Magas CO₂-szint (1400+ ppm) esetén körülbelül 17%-os teljesítményromlás mérhető — statisztikailag igazoltan (p = 0,018). Ezt szinte senki nem érzi közvetlenül." },
+{ q:"Szerinted mennyivel jobb a stratégiai gondolkodás tiszta levegőben, mint egy rosszul szellőztetett teremben?", opts:["Alig változik","Kétszer olyan jó","Négyszer olyan jó","Tízszer olyan jó"], correct:2, explain:"Allen et al. (2016): Zöld+ környezetben 3,77×, magas CO₂ esetén 0,83× — közel négyszeres különbség a stratégiai gondolkodásban." }
+];
+
+let currentQ = -1;
+let revealed  = false;
+let votes     = QS.map(() => [0,0,0,0]);
+let parts     = {};
+let socket;
+
+function clock() {
+  const t = new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('load-clock').textContent = t;
+  document.getElementById('tb-clock').textContent = t;
+}
+clock(); setInterval(clock, 1000);
+
+setTimeout(() => {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('app').classList.add('active');
+  initSocket();
+}, 1500);
+
+function initSocket() {
+  socket = io();
+
+  socket.on('connect', () => {
+    document.getElementById('conn-dot').classList.add('ok');
+    document.getElementById('conn-txt').textContent = 'Kapcsolódva';
+    socket.emit('quiz_admin_join');
+  });
+
+  socket.on('disconnect', () => {
+    document.getElementById('conn-dot').classList.remove('ok');
+    document.getElementById('conn-txt').textContent = 'Újrakapcsolódás...';
+  });
+
+  socket.on('quiz_state', (state) => {
+    currentQ = state.currentQ ?? -1;
+    revealed = state.revealed ?? false;
+    votes    = state.votes || QS.map(()=>[0,0,0,0]);
+    parts    = state.participants || {};
+    updateAll();
+  });
+
+  socket.on('quiz_votes', ({ question, votes: v }) => {
+    votes[question] = v;
+    if (currentQ === question) updateChart();
+    updateStats();
+  });
+
+  socket.on('quiz_end', () => {
+    document.getElementById('right').innerHTML = `
+      <div class="idle">
+        <div class="idle-title">Kvíz befejezve!</div>
+        <div class="idle-sub">Minden kérdés megválaszolva.<br>Köszönjük a részvételt!</div>
+      </div>`;
+  });
+
+  socket.on('quiz_reset', () => {
+    currentQ=-1; revealed=false; votes=QS.map(()=>[0,0,0,0]); parts={};
+    updateAll();
+  });
+
+  socket.on('participant_update', (p) => {
+    parts = p;
+    updateParticipants();
+    updateStats();
+  });
+}
+
+function adminStart()  { socket.emit('quiz_admin_start'); }
+function adminReveal() { socket.emit('quiz_admin_reveal'); }
+function adminNext()   { socket.emit('quiz_admin_next'); }
+function adminReset()  { if(confirm('Biztosan újraindítod? Minden szavazat törlődik.')) socket.emit('quiz_admin_reset'); }
+
+function updateAll() {
+  updateParticipants();
+  updateStats();
+  updateButtons();
+  if (currentQ >= 0) renderQuestion();
+  else {
+    document.getElementById('right').innerHTML = `
+      <div class="idle" id="idle">
+        <img src="/static/logo.png" alt="" onerror="this.style.display='none'">
+        <div class="idle-title">Kvíz készenléti állapot</div>
+        <div class="idle-sub">Várj amíg a résztvevők csatlakoznak,<br>majd nyomd meg az Indítás gombot.</div>
+      </div>`;
+  }
+}
+
+function updateButtons() {
+  document.getElementById('btn-start').disabled  = currentQ >= 0;
+  document.getElementById('btn-reveal').disabled = currentQ < 0 || revealed;
+  document.getElementById('btn-next').disabled   = currentQ < 0 || !revealed || currentQ >= QS.length-1;
+}
+
+function updateParticipants() {
+  const names = Object.keys(parts);
+  const list  = document.getElementById('part-list');
+  if (!names.length) { list.innerHTML = '<div class="no-parts">Még senki sem csatlakozott</div>'; return; }
+  list.innerHTML = names.map(n => {
+    const voted = currentQ >= 0 && parts[n]?.votes?.[currentQ] >= 0;
+    return `<div class="part"><div class="part-dot"></div><div class="part-name">${n}</div>${voted?'<div class="part-voted">✓</div>':''}</div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const names = Object.keys(parts);
+  document.getElementById('s-users').textContent = names.length;
+  const voted = currentQ>=0 ? names.filter(n=>parts[n]?.votes?.[currentQ]>=0).length : 0;
+  document.getElementById('s-voted').textContent = voted;
+  document.getElementById('s-q').textContent = currentQ>=0 ? (currentQ+1)+'/'+QS.length : '—';
+}
+
+function renderQuestion() {
+  const right = document.getElementById('right');
+  right.innerHTML = `
+    <div class="pbar-top"><div class="pbar-top-fill" id="ptop" style="width:${(currentQ+1)/QS.length*100}%"></div></div>
+    <div class="q-card" id="qcard">
+      <div class="q-hdr">
+        <div class="q-idx">${currentQ+1}. KÉRDÉS</div>
+        <div class="q-total" id="q-total">0 szavazat</div>
+      </div>
+      <div class="q-text">${QS[currentQ].q}</div>
+      <div class="chart" id="chart"></div>
+      <div class="explain ${revealed?'show':''}" id="explain">${QS[currentQ].explain}</div>
+    </div>`;
+  updateChart();
+  updateButtons();
+}
+
+function updateChart() {
+  const chartEl = document.getElementById('chart');
+  if (!chartEl || currentQ < 0) return;
+  const q     = QS[currentQ];
+  const v     = votes[currentQ] || [0,0,0,0];
+  const total = v.reduce((a,b)=>a+b,0);
+  document.getElementById('q-total').textContent = total + ' szavazat';
+  chartEl.innerHTML = q.opts.map((o,i) => {
+    const pct = total>0 ? Math.round(v[i]/total*100) : 0;
+    const cor = revealed && i===q.correct;
+    return `<div class="chart-row">
+      <div class="chart-key ${cor?'correct':''}">${'ABCD'[i]}</div>
+      <div class="chart-bar-wrap">
+        <div class="chart-label">${o}</div>
+        <div class="chart-bg">
+          <div class="chart-fill ${cor?'correct':''}" style="width:${pct}%">
+            <div class="chart-pct">${pct}%</div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-cnt">${v[i]}</div>
+    </div>`;
+  }).join('');
+  const ex = document.getElementById('explain');
+  if (ex && revealed) ex.classList.add('show');
+}
+</script>
+</body>
+</html>

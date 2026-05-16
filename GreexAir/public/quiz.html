@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GrexAir Kvíz</title>
+<style>
+:root {
+  --green:#1D9E75; --green-deep:#0F6E56; --green-light:#9FE1CB;
+  --dark:#061520; --dark2:#0A2233; --dark3:#0F2D42; --dark4:#1A3A52;
+  --text:#E8F5F0; --muted:#6BAF98; --red:#D85A30; --amber:#EF9F27;
+  --glass:rgba(15,45,66,0.75); --gb:rgba(29,158,117,0.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--dark);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:var(--text)}
+body{display:flex;flex-direction:column;align-items:center;min-height:100vh;
+  background:radial-gradient(ellipse at 20% 0%,rgba(29,158,117,.12) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 100%,rgba(15,110,86,.08) 0%,transparent 60%),var(--dark)}
+
+/* LOADING */
+#loading{position:fixed;inset:0;z-index:100;background:var(--dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .6s,visibility .6s}
+#loading.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.logo-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.logo-img{width:80px;height:80px;border-radius:22px;object-fit:cover;animation:pulse 2.5s ease-in-out infinite;box-shadow:0 0 40px rgba(29,158,117,.4)}
+@keyframes pulse{0%,100%{box-shadow:0 0 30px rgba(29,158,117,.3)}50%{box-shadow:0 0 55px rgba(29,158,117,.6)}}
+.logo-txt{font-size:26px;font-weight:700;color:var(--green)}
+.logo-sub{font-size:11px;color:var(--muted);letter-spacing:2px}
+.load-clock{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.load-bar-wrap{width:120px;height:2px;background:var(--dark4);border-radius:2px;overflow:hidden}
+.load-bar{height:100%;background:var(--green);animation:lb 1.4s ease forwards}
+@keyframes lb{from{width:0}to{width:100%}}
+
+/* SCREENS */
+.screen{display:none;flex-direction:column;align-items:center;width:100%;max-width:420px;padding:20px 16px;gap:16px;padding-top:44px}
+.screen.active{display:flex}
+
+/* CARD */
+.card{width:100%;background:var(--glass);border:1px solid var(--gb);border-radius:20px;padding:26px 22px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.4),inset 0 1px 0 rgba(29,158,117,.08)}
+
+/* LOGO SMALL */
+.logo-sm{display:flex;align-items:center;gap:10px}
+.logo-sm img{width:32px;height:32px;border-radius:9px;object-fit:cover}
+.logo-sm-txt{font-size:18px;font-weight:700;color:var(--green)}
+
+/* NAME SCREEN */
+.ns-title{font-size:19px;font-weight:700;margin-bottom:6px}
+.ns-sub{font-size:14px;color:var(--muted);margin-bottom:22px;line-height:1.5}
+.ns-input{width:100%;padding:14px 16px;background:rgba(10,34,51,.8);border:1.5px solid var(--dark4);border-radius:12px;color:var(--text);font-size:16px;outline:none;transition:border-color .2s;font-family:inherit}
+.ns-input:focus{border-color:var(--green)}
+.ns-input::placeholder{color:var(--muted)}
+.ns-btn{width:100%;margin-top:12px;padding:15px;background:linear-gradient(135deg,var(--green),var(--green-deep));border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;font-family:inherit;box-shadow:0 4px 20px rgba(29,158,117,.3)}
+.ns-btn:active{transform:scale(.97)}
+.ns-btn:disabled{opacity:.4;cursor:default}
+
+/* WAIT */
+.wait-spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--dark4);border-top-color:var(--green);animation:spin 1s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wait-name{font-size:14px;color:var(--green);font-weight:600;margin-bottom:6px;text-align:center}
+.wait-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:8px}
+.wait-sub{font-size:13px;color:var(--muted);line-height:1.5;text-align:center}
+
+/* QUIZ */
+.quiz-hdr{width:100%;display:flex;align-items:center;justify-content:space-between}
+.q-badge{background:var(--dark3);border:1px solid var(--dark4);color:var(--muted);font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px}
+.pbar{width:100%;height:3px;background:var(--dark4);border-radius:3px}
+.pbar-fill{height:100%;background:var(--green);border-radius:3px;transition:width .4s}
+.q-num{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.q-txt{font-size:17px;font-weight:700;line-height:1.45}
+.opts{display:flex;flex-direction:column;gap:9px;width:100%}
+.opt{background:rgba(10,34,51,.7);border:1.5px solid var(--dark4);border-radius:12px;overflow:hidden;cursor:pointer;position:relative;transition:border-color .2s,transform .1s}
+.opt:active{transform:scale(.98)}
+.opt.selected{border-color:var(--green)}
+.opt.voted{cursor:default}
+.opt-row{display:flex;align-items:center;gap:10px;padding:13px 14px;position:relative;z-index:2}
+.opt-key{width:28px;height:28px;border-radius:50%;background:var(--dark4);color:var(--green-light);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s}
+.opt.selected .opt-key{background:var(--green);color:#fff}
+.opt-txt{font-size:14px;color:var(--text);flex:1;font-weight:500;line-height:1.35}
+.opt-bar{position:absolute;left:0;top:0;height:100%;background:rgba(29,158,117,.1);pointer-events:none;z-index:1;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.voted-msg{text-align:center;font-size:13px;color:var(--green);padding:8px;font-weight:600}
+
+/* END */
+.end-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--green),var(--green-deep));display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.end-title{font-size:20px;font-weight:700;text-align:center;margin-bottom:8px}
+.end-sub{font-size:14px;color:var(--muted);line-height:1.5;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="logo-wrap">
+    <img class="logo-img" src="/static/logo.png" alt="GrexAir" onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'">
+    <div id="logo-fallback" style="display:none;width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,#1D9E75,#0F6E56);align-items:center;justify-content:center;animation:pulse 2.5s ease-in-out infinite">
+      <svg width="44" height="44" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="12" stroke="white" stroke-width="2.5" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg>
+    </div>
+    <div class="logo-txt">GrexAir</div>
+    <div class="logo-sub">CO₂ MONITORING</div>
+  </div>
+  <div class="load-clock" id="load-clock">--:--:--</div>
+  <div class="load-bar-wrap"><div class="load-bar"></div></div>
+</div>
+
+<div class="screen" id="namescreen">
+  <div class="logo-sm">
+    <img src="/static/logo.png" alt="GrexAir" onerror="this.style.display='none'">
+    <span class="logo-sm-txt">GrexAir</span>
+  </div>
+  <div class="card">
+    <div class="ns-title">Üdvözlünk a kvízen!</div>
+    <div class="ns-sub">Add meg a neved a szavazáshoz. Semmilyen regisztráció nem szükséges.</div>
+    <input class="ns-input" id="name-input" type="text" placeholder="Pl. Kovács Péter" maxlength="32" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <button class="ns-btn" id="join-btn" onclick="joinQuiz(false)">Csatlakozás →</button>
+  </div>
+</div>
+
+<div class="screen" id="waitscreen">
+  <div class="card">
+    <div class="wait-spinner"></div>
+    <div class="wait-name" id="wait-name"></div>
+    <div class="wait-title">Várakozás az előadóra...</div>
+    <div class="wait-sub">Az előadó hamarosan elindítja a kvízt. Tartsd nyitva ezt az oldalt.</div>
+  </div>
+</div>
+
+<div class="screen" id="quizscreen">
+  <div class="quiz-hdr">
+    <div class="logo-sm">
+      <img src="/static/logo.png" alt="GrExAir" onerror="this.style.display='none'">
+      <span class="logo-sm-txt">GrexAir</span>
+    </div>
+    <span class="q-badge" id="q-badge">1 / 5</span>
+  </div>
+  <div class="pbar"><div class="pbar-fill" id="pbar" style="width:20%"></div></div>
+  <div class="card">
+    <div class="q-num" id="q-num">1. KÉRDÉS</div>
+    <div class="q-txt" id="q-txt"></div>
+  </div>
+  <div class="opts" id="opts"></div>
+  <div class="voted-msg" id="voted-msg" style="display:none">Szavazatod rögzítve várd meg az előadót!</div>
+</div>
+
+<div class="screen" id="endscreen">
+  <div class="card">
+    <div class="end-icon">
+      <svg width="30" height="30" viewBox="0 0 40 40" fill="none"><path d="M10 20 L17 27 L30 13" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="end-title">Köszönjük a részvételt!</div>
+    <div class="end-sub">Figyelj az előadóra most jön a magyarázat és a megoldás.</div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const QS = [
+  { q:"Szerinted most ebben a teremben mennyi a CO₂ szint?", opts:["~400 ppm (mint kinn)","~700 ppm","~1200 ppm","2000 ppm felett"] },
+  { q:"Érzed-e ha magas a CO₂ szint a levegőben?", opts:["Igen szúró szagot érzek","Igen nehezebben lélegzem","Nem teljesen érzékelhetetlen","Csak ha nagyon magas"] },
+  { q:"Szerinted mennyivel teljesítesz jobban jól szellőztetett levegőben egy dolgozaton?", opts:["Alig változik","Kicsit jobb (~20%)","Jelentősen jobb (~50%)","Közel kétszer olyan jó"] },
+  { q:"Szerinted rosszul szellőztetett teremben (1400+ ppm) mennyivel romlik a problémamegoldó képességed?", opts:["Alig változik","~15%-kal romlik","~30%-kal romlik","Több mint a fele elvész"] },
+  { q:"Szerinted a stratégiai gondolkodás mennyivel jobb tiszta levegőben, mint egy rosszul szellőztetett teremben?", opts:["Alig változik","Kétszer olyan jó","Négyszer olyan jó","Tízszer olyan jó"] }
+];
+
+// LOKÁLIS MEMÓRIA KEZELÉSE (Ez védi ki az F5-öt)
+let myName = localStorage.getItem('grexair_quiz_name') || '';
+let mySessionId = localStorage.getItem('grexair_quiz_sid');
+if (!mySessionId) {
+    mySessionId = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('grexair_quiz_sid', mySessionId);
+}
+
+let myVotes = new Array(QS.length).fill(-1);
+let currentQ = -1;
+let socket;
+
+function clock() {
+  const t = new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('load-clock').textContent = t;
+}
+clock(); setInterval(clock, 1000);
+
+// --- MÓDOSÍTOTT BETÖLTÉSI LOGIKA ---
+setTimeout(() => {
+  document.getElementById('loading').classList.add('hidden');
+  
+  // HA MÁR VAN NEVE ÉS SESSION ID-JA (F5-öt nyomott)
+  if (myName !== '' && mySessionId) {
+      // Megpróbálunk automatikusan visszacsatlakozni.
+      // A képernyőt majd a szerver válasza alapján váltjuk.
+      joinQuiz(true); 
+  } else {
+      // Nincs mentett név, vagy új játékos -> Jöhet a névbekérő
+      showScreen('name');
+  }
+}, 1500);
+
+// ...
+
+function joinQuiz(isAutoRejoin = false) {
+  // Ha nem automatikusan lépett vissza (tehát most kattintott a gombra)
+  if (!isAutoRejoin) {
+      const v = document.getElementById('name-input').value.trim();
+      if (!v) return;
+      myName = v;
+      localStorage.setItem('grexair_quiz_name', myName); 
+  }
+  
+  if (document.getElementById('join-btn')) {
+      document.getElementById('join-btn').disabled = true;
+  }
+
+  // Csak egyszer inicializáljuk a socketet
+  if (!socket) {
+      socket = io();
+  }
+  
+  // Átküldjük a titkos azonosítót is!
+  socket.emit('quiz_join', { name: myName, sessionId: mySessionId });
+  document.getElementById('wait-name').textContent = 'Beléptél mint: ' + myName;
+  
+  // CSAK akkor mutatjuk a várótermet, ha FRISS belépő. 
+  // F5 esetén megvárjuk a 'quiz_restore' eseményt!
+  if (!isAutoRejoin) {
+      showScreen('wait');
+  }
+
+  // --- ESEMÉNYKEZELŐK BEÁLLÍTÁSA (Egyszer futnak le) ---
+  // Fontos: Ezeket ne regisztráljuk újra, ha már csatlakoztunk!
+  if(!socket.hasListeners('quiz_restore')) {
+
+      // VISSZATÖLTÉS: A szerver visszaküldi a korábbi adatainkat (F5 után)
+      socket.on('quiz_restore', (data) => {
+          console.log("Szerver válasza visszatöltésre:", data);
+          myVotes = data.myVotes; // Betöltjük a saját korábbi voksainkat a memóriából
+          
+          if (data.currentQ === 99) {
+              showScreen('end');
+          } else if (data.currentQ < 0) {
+              showScreen('wait');
+          } else {
+              // Ha már megy a kvíz, azt a quiz_question esemény is kezeli majd
+          }
+      });
+
+      socket.on('quiz_question', ({ index, votes }) => {
+        currentQ = index;
+        renderQuestion(index, votes);
+      });
+
+      socket.on('quiz_votes', ({ question, votes }) => {
+        if (question === currentQ) updateBars(votes);
+      });
+
+      socket.on('quiz_end', () => showScreen('end'));
+      
+      socket.on('quiz_reset', () => {
+        myVotes = new Array(QS.length).fill(-1);
+        currentQ = -1;
+        showScreen('wait');
+      });
+  }
+}
+
+document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') joinQuiz(false); });
+
+function showScreen(name) {
+  ['name','wait','quiz','end'].forEach(s => document.getElementById(s+'screen').classList.remove('active'));
+  document.getElementById(name+'screen').classList.add('active');
+}
+
+function joinQuiz(isAutoRejoin = false) {
+  // Ha nem automatikusan lépett vissza, kérjük le a nevet és mentsük el
+  if (!isAutoRejoin) {
+      const v = document.getElementById('name-input').value.trim();
+      if (!v) return;
+      myName = v;
+      localStorage.setItem('grexair_quiz_name', myName); 
+  }
+  
+  if (document.getElementById('join-btn')) {
+      document.getElementById('join-btn').disabled = true;
+  }
+
+  socket = io();
+  
+  // Átküldjük a titkos azonosítót is!
+  socket.emit('quiz_join', { name: myName, sessionId: mySessionId });
+  document.getElementById('wait-name').textContent = 'Beléptél mint: ' + myName;
+  showScreen('wait');
+
+  // VISSZATÖLTÉS: A szerver visszaküldi a korábbi adatainkat (F5 után)
+  socket.on('quiz_restore', (data) => {
+      myVotes = data.myVotes; // Betöltjük a saját korábbi voksainkat a memóriából
+      if (data.currentQ === 99) {
+          showScreen('end');
+      } else if (data.currentQ < 0) {
+          showScreen('wait');
+      }
+  });
+
+  socket.on('quiz_question', ({ index, votes }) => {
+    currentQ = index;
+    renderQuestion(index, votes);
+  });
+
+  socket.on('quiz_votes', ({ question, votes }) => {
+    if (question === currentQ) updateBars(votes);
+  });
+
+  socket.on('quiz_end', () => showScreen('end'));
+  
+  socket.on('quiz_reset', () => {
+    myVotes = new Array(QS.length).fill(-1);
+    currentQ = -1;
+    showScreen('wait');
+  });
+}
+
+function renderQuestion(idx, votes) {
+  const q = QS[idx];
+  document.getElementById('q-badge').textContent = (idx+1) + ' / ' + QS.length;
+  document.getElementById('q-num').textContent = (idx+1) + '. KÉRDÉS';
+  document.getElementById('q-txt').textContent = q.q;
+  document.getElementById('pbar').style.width = ((idx+1)/QS.length*100) + '%';
+
+  // Megnézzük, szavazott-e már (ha F5 előtt nyomott rá, akkor itt 'true' lesz)
+  const voted = myVotes[idx] >= 0;
+  const total = votes ? votes.reduce((a,b)=>a+b,0) : 0;
+
+  document.getElementById('opts').innerHTML = q.opts.map((o,i) => {
+    const pct = total > 0 ? Math.round(votes[i]/total*100) : 0;
+    const sel = myVotes[idx]===i ? 'selected' : ''; // Visszaállítjuk a kiválasztott stílust
+    const vc  = voted ? 'voted' : '';
+    return `<div class="opt ${sel} ${vc}" onclick="vote(${i})">
+      <div class="opt-bar" style="width:${voted?pct:0}%"></div>
+      <div class="opt-row">
+        <div class="opt-key">${'ABCD'[i]}</div>
+        <div class="opt-txt">${o}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Ha szavazott, azonnal mutatjuk az eredmény sávokat
+  document.getElementById('voted-msg').style.display = voted ? 'block' : 'none';
+  showScreen('quiz');
+}
+
+function vote(i) {
+  if (myVotes[currentQ] >= 0 || currentQ < 0) return;
+  myVotes[currentQ] = i;
+  socket.emit('quiz_vote', { question: currentQ, option: i });
+  document.getElementById('voted-msg').style.display = 'block';
+  document.querySelectorAll('.opt').forEach((el,idx) => {
+    el.classList.add('voted');
+    if (idx===i) el.classList.add('selected');
+  });
+}
+
+function updateBars(votes) {
+  if (currentQ < 0 || myVotes[currentQ] < 0) return;
+  const total = votes.reduce((a,b)=>a+b,0);
+  document.querySelectorAll('.opt').forEach((el,i) => {
+    const pct = total > 0 ? Math.round(votes[i]/total*100) : 0;
+    const bar = el.querySelector('.opt-bar');
+    if (bar) bar.style.width = pct + '%';
+  });
+}
+</script>
+</body>
+</html>

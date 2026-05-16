@@ -1,0 +1,887 @@
+<%
+var tr    = (typeof tr    !== 'undefined' && tr)    ? tr    : {};
+var lang  = (typeof lang  !== 'undefined' && lang)  ? lang  : 'hu';
+var theme = (typeof theme !== 'undefined' && theme) ? theme : 'dark';
+var isDarkInit = (theme === 'dark');
+
+// Map full data object to payload-like structure for template use
+var payload = null;
+if (typeof full !== 'undefined' && full) {
+    var _st = (typeof airStatus !== 'undefined' && airStatus) ? airStatus : { text:'-', key:'air_nodata', cssClass:'status-neutral' };
+    payload = {
+        kpi:              full.kpi,
+        chartData:        full.chartPoints || [],
+        timeStats:        full.timeStats   || [0,0,0],
+        speedBuckets:     full.speedBuckets || {},
+        count:            full.count       || 0,
+        air_status_text:  _st.text,
+        air_status_key:   _st.key,
+        air_status_class: _st.cssClass
+    };
+}
+%>
+<!DOCTYPE html>
+<html lang="<%= lang %>" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>GrexAir CO2 Report - <%= date %></title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:   #0a84ff;
+      --green:  #30d158;
+      --red:    #ff453a;
+      --orange: #ff9f0a;
+      --yellow: #ffd60a;
+      --purple: #bf5af2;
+      --teal:   #5ac8fa;
+      --bg:     #ffffff;
+      --text:   #1a1a2e;
+      --text2:  #4a4a6a;
+      --border: #e0e0f0;
+      --card:   #f8f8fc;
+    }
+
+    [data-theme="dark"] {
+      --bg:     #0d1119;
+      --text:   #f0f4fc;
+      --text2:  rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.10);
+      --card:   rgba(255,255,255,0.04);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      font-family: 'Geist', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 0;
+    }
+
+    /* ── PRINT LAYOUT ── */
+    .page {
+      width: 190mm;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 10mm 12mm;
+      background: white;
+    }
+
+    /* ── HEADER ── */
+    .report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--blue);
+      margin-bottom: 14px;
+    }
+    .report-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0a84ff, #30d158);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 11px;
+    }
+    .logo-text h1 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--blue);
+      letter-spacing: -.5px;
+    }
+    .logo-text p {
+      font-size: 9px;
+      color: var(--text2);
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+    .report-meta {
+      text-align: right;
+      font-size: 10px;
+      color: var(--text2);
+      line-height: 1.8;
+    }
+    .report-meta strong {
+      color: var(--text);
+      font-size: 13px;
+      display: block;
+    }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 6px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── STATUS BANNER ── */
+    .status-banner {
+      text-align: center;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+    }
+    .status-banner.status-good    { background: rgba(48,209,88,.12);  color: #1a7a35;  border: 1px solid rgba(48,209,88,.4); }
+    .status-banner.status-warning { background: rgba(255,159,10,.12); color: #8a5500;  border: 1px solid rgba(255,159,10,.4); }
+    .status-banner.status-danger  { background: rgba(255,69,58,.12);  color: #8a1a10;  border: 1px solid rgba(255,69,58,.4); }
+    .status-banner.status-neutral { background: rgba(90,200,250,.10); color: #1a4a7a;  border: 1px solid rgba(90,200,250,.4); }
+
+    /* ── KPI GRID ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 10px 8px;
+      border-top: 3px solid currentColor;
+    }
+    .kpi-label {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    .kpi-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+    .kpi-unit {
+      font-size: 9px;
+      font-weight: 400;
+      opacity: .6;
+      margin-left: 2px;
+    }
+    .kpi-sub {
+      font-size: 8px;
+      color: var(--text2);
+      margin-top: 3px;
+    }
+
+    /* ── CHART AREA ── */
+    .chart-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px 0 12px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .chart-box h3 {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .chart-box p {
+      font-size: 8px;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+    .chart-img {
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      background: #f0f0f8;
+      display: block;
+    }
+    .chart-placeholder {
+      width: 100%;
+      height: 60px;
+      background: linear-gradient(135deg, #f0f4ff, #e8f0fe);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text2);
+      font-size: 9px;
+    }
+
+    /* ── STATS TABLE ── */
+    .stats-row {
+      display: flex;
+      gap: 10px;
+    }
+    .stat-box {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .stat-box h4 {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+    }
+    .stat-item:last-child { border-bottom: none; }
+    .stat-item-label { color: var(--text2); }
+    .stat-item-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── QUALITY BARS ── */
+    .quality-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ql-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 9px;
+    }
+    .ql-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ql-label { width: 100px; color: var(--text2); }
+    .ql-bar-bg {
+      flex: 1;
+      height: 7px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .ql-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width .3s;
+    }
+    .ql-pct {
+      width: 30px;
+      text-align: right;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+    }
+    .ql-time {
+      width: 55px;
+      text-align: right;
+      color: var(--text2);
+      font-size: 9px;
+    }
+
+    /* ── FOOTER ── */
+    .report-footer {
+      margin-top: 14px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: var(--text2);
+    }
+
+    /* ── DARK THEME OVERRIDES ── */
+    [data-theme="dark"] .page { background: #0d1119; }
+    [data-theme="dark"] .kpi-card { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
+    [data-theme="dark"] .stat-box { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
+    [data-theme="dark"] .chart-box { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
+    [data-theme="dark"] .ql-bar-bg { background: rgba(255,255,255,0.08); }
+    [data-theme="dark"] .stat-item { border-bottom-color: rgba(255,255,255,0.08); }
+    [data-theme="dark"] .stat-item-label { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .stat-item-val { color: #f0f4fc; }
+    [data-theme="dark"] .kpi-label { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .kpi-sub { color: rgba(255,255,255,0.35); }
+    [data-theme="dark"] .kpi-unit { color: rgba(255,255,255,0.4); }
+    [data-theme="dark"] .chart-box h3 { color: #f0f4fc; }
+    [data-theme="dark"] .chart-box p { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .stat-box h4 { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .section-title { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .section-title::after { background: rgba(255,255,255,0.10); }
+    [data-theme="dark"] .ql-label { color: rgba(255,255,255,0.55); }
+    [data-theme="dark"] .ql-time { color: rgba(255,255,255,0.4); }
+    [data-theme="dark"] .report-meta { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .report-meta strong { color: #f0f4fc; }
+    [data-theme="dark"] .report-footer { color: rgba(255,255,255,0.35); border-top-color: rgba(255,255,255,0.10); }
+    [data-theme="dark"] .report-header { border-bottom-color: var(--blue); }
+    [data-theme="dark"] .logo-text p { color: rgba(255,255,255,0.45); }
+    [data-theme="dark"] .chart-placeholder { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); }
+    [data-theme="dark"] #eval-box { background: rgba(255,255,255,0.04) !important; border-color: rgba(255,255,255,0.10) !important; color: rgba(255,255,255,0.65) !important; }
+    [data-theme="dark"] .status-banner.status-good    { background: rgba(48,209,88,.15);  color: #30d158; border-color: rgba(48,209,88,.35); }
+    [data-theme="dark"] .status-banner.status-warning { background: rgba(255,159,10,.15); color: #ff9f0a; border-color: rgba(255,159,10,.35); }
+    [data-theme="dark"] .status-banner.status-danger  { background: rgba(255,69,58,.15);  color: #ff453a; border-color: rgba(255,69,58,.35); }
+    [data-theme="dark"] .status-banner.status-neutral { background: rgba(90,200,250,.12); color: #5ac8fa; border-color: rgba(90,200,250,.35); }
+
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      html, body { margin: 0; padding: 0; background: white !important; }
+      .page {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        background: white !important;
+      }
+      .no-print { display: none !important; }
+      .page-wrapper { margin-top: 0 !important; }
+      @page { size: A4 portrait; margin: 10mm 10mm 8mm 10mm; }
+      /* Compact spacing for single page */
+      .section-title { margin-top: 8px !important; margin-bottom: 5px !important; }
+      .kpi-grid { gap: 5px !important; margin-bottom: 6px !important; }
+      .kpi-card { padding: 6px 8px 5px !important; }
+      .kpi-value { font-size: 16px !important; }
+      .status-banner { padding: 5px 12px !important; margin-bottom: 8px !important; }
+      .chart-box { padding: 6px 8px !important; margin-bottom: 6px !important; }
+      .chart-box { padding: 8px 4px 0 4px !important; }
+      .chart-box canvas { max-height: 170px !important; width: 100% !important; display: block; }
+      #rpt-chart { width: 100% !important; }
+      .chart-box h3, .chart-box p { padding-left: 6px; }
+      .stat-box { padding: 8px 10px !important; }
+      .stats-row { gap: 6px !important; }
+      /* Colors */
+      .kpi-card, .stat-box, .chart-box, #eval-box {
+        background: white !important;
+        border: 1px solid #dde0ec !important;
+        break-inside: avoid;
+      }
+      .status-banner { print-color-adjust: exact !important; }
+      .ql-bar-fill { print-color-adjust: exact !important; }
+      #eval-box { background: #f7f8fc !important; color: #3a3a5a !important; }
+      .report-footer { border-top: 1px solid #dde0ec !important; }
+    }
+
+    /* Dark mode print overrides */
+    [data-theme="dark"] {
+      color-scheme: dark;
+    }
+    @media print {
+      [data-theme="dark"] .page { background: #0d1119 !important; color: #f0f4fc !important; }
+      [data-theme="dark"] .kpi-card, [data-theme="dark"] .stat-box, [data-theme="dark"] .chart-box {
+        background: rgba(255,255,255,0.05) !important;
+        border-color: rgba(255,255,255,0.12) !important;
+      }
+      [data-theme="dark"] .stat-item-val { color: #f0f4fc !important; }
+      [data-theme="dark"] .kpi-label, [data-theme="dark"] .stat-item-label,
+      [data-theme="dark"] .section-title, [data-theme="dark"] .stat-box h4 { color: rgba(255,255,255,0.5) !important; }
+      [data-theme="dark"] .ql-bar-bg { background: rgba(255,255,255,0.10) !important; }
+      [data-theme="dark"] #eval-box { background: rgba(255,255,255,0.04) !important; border-color: rgba(255,255,255,0.10) !important; color: rgba(255,255,255,0.65) !important; }
+    }
+
+    /* ── SCREEN preview toolbar ── */
+    .toolbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #1a1a2e;
+      color: white;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 100;
+      font-size: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.3);
+    }
+    .toolbar-title { font-weight: 700; color: #5ac8fa; }
+    .toolbar-btn {
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-print { background: #ff453a; color: white; }
+    .btn-close { background: rgba(255,255,255,.1); color: white; }
+    .page-wrapper { margin-top: 48px; }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar (csak képernyőn látszik, nyomtatásban nem) -->
+<div class="toolbar no-print">
+  <span class="toolbar-title">GrexAir PDF Riport — <%= date %></span>
+  <div style="display:flex;gap:8px">
+    <button class="toolbar-btn" id="theme-toggle-btn" onclick="toggleTheme()" style="background:rgba(255,255,255,.1);color:white">
+      <%= isDarkInit ? '☀️ ' + (tr.report_theme_light||'Világos') : '🌙 ' + (tr.report_theme_dark||'Sötét') %>
+    </button>
+    <button class="toolbar-btn btn-close" onclick="window.close()"><%= tr.report_close %></button>
+    <button class="toolbar-btn btn-print" onclick="window.print()">⬇ <%= tr.report_print %></button>
+  </div>
+</div>
+
+<div class="page-wrapper">
+<div class="page" id="report-page">
+
+  <!-- Header -->
+  <div class="report-header">
+    <div class="report-logo">
+      <div class="logo-icon">
+        <img src="/static/logo.png" alt="GrexAir" style="width:36px;height:36px;object-fit:contain;border-radius:10px"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <span style="display:none;width:36px;height:36px;background:linear-gradient(135deg,#0a84ff,#30d158);border-radius:10px;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">CO₂</span>
+      </div>
+      <div class="logo-text">
+        <h1>GrexAir</h1>
+        <p>CO₂ Monitoring Report</p>
+      </div>
+    </div>
+    <div class="report-meta">
+      <strong><%= date %></strong>
+      <%= new Date().toLocaleString(lang + '-' + lang.toUpperCase(), {hour:'2-digit', minute:'2-digit'}) %>
+    </div>
+  </div>
+
+  <% if (!payload) { %>
+    <div class="status-banner status-neutral"><%= tr.report_no_data %></div>
+  <% } else { %>
+
+  <!-- Státusz banner -->
+  <div class="status-banner <%= payload.air_status_class || 'status-neutral' %>">
+    <%= tr[payload.air_status_key] || payload.air_status_text || '-' %>
+  </div>
+
+  <!-- KPI kártyák -->
+  <div class="section-title"><%= tr.kpi_current || 'Összefoglaló' %></div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="color:var(--blue)">
+      <div class="kpi-label"><%= tr.kpi_current || 'Jelenlegi' %></div>
+      <div class="kpi-value" style="color:var(--blue)"><%= payload.kpi.current %><span class="kpi-unit">ppm</span></div>
+      <div class="kpi-sub"><%= tr.kpi_sub_co2 || 'CO2-szint' %></div>
+    </div>
+    <div class="kpi-card" style="color:var(--purple)">
+      <div class="kpi-label"><%= tr.kpi_avg || 'Átlag' %></div>
+      <div class="kpi-value" style="color:var(--purple)"><%= payload.kpi.avg %><span class="kpi-unit">ppm</span></div>
+      <div class="kpi-sub"><%= tr.kpi_sub_avg || 'Napi átlag' %></div>
+    </div>
+    <div class="kpi-card" style="color:var(--red)">
+      <div class="kpi-label"><%= tr.kpi_max || 'Maximum' %></div>
+      <div class="kpi-value" style="color:var(--red)"><%= payload.kpi.max %><span class="kpi-unit">ppm</span></div>
+      <div class="kpi-sub"><%= tr.kpi_sub_max || 'Napi csúcs' %></div>
+    </div>
+    <div class="kpi-card" style="color:var(--green)">
+      <div class="kpi-label"><%= tr.kpi_min || 'Minimum' %></div>
+      <div class="kpi-value" style="color:var(--green)"><%= payload.kpi.min %><span class="kpi-unit">ppm</span></div>
+      <div class="kpi-sub"><%= tr.kpi_sub_min || 'Napi mélypont' %></div>
+    </div>
+    <div class="kpi-card" style="color:var(--teal)">
+      <div class="kpi-label"><%= tr.kpi_range || 'Tartomány' %></div>
+      <div class="kpi-value" style="color:var(--teal)"><%= payload.kpi.max - payload.kpi.min %><span class="kpi-unit">ppm</span></div>
+      <div class="kpi-sub"><%= tr.kpi_sub_range || 'Max - Min' %></div>
+    </div>
+  </div>
+
+  <!-- Grafikon -->
+  <div class="section-title"><%= tr.chart_co2_title || 'CO2-koncentráció' %></div>
+  <div class="chart-box">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
+      <div>
+        <h3 style="margin:0"><%= tr.chart_co2_title || 'CO2-koncentráció' %></h3>
+        <p style="margin:0"><%= tr.chart_co2_sub || 'Nyers mérés · Kálmán trendvonal' %></p>
+      </div>
+      <div class="no-print" style="font-size:9px;color:var(--text2);text-align:right;line-height:1.5">
+        🖱 Húzd: kijelölés · Scroll: zoom · Dbl-klikk: reset
+      </div>
+    </div>
+    <div style="position:relative;height:200px;width:100%;margin-bottom:0">
+      <canvas id="rpt-chart"></canvas>
+    </div>
+    <div id="rpt-zoom-hint" class="no-print" style="text-align:right;margin-top:4px">
+      <button onclick="resetRptZoom()" id="rpt-reset-btn" style="display:none;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text2);font-size:10px;cursor:pointer">↺ Zoom visszaállítás</button>
+    </div>
+  </div>
+
+  <!-- Statisztikák + Levegőminőség -->
+  <div class="section-title"><%= tr.stat_title || 'Napi statisztika' %></div>
+  <div class="stats-row">
+    <div class="stat-box">
+      <h4><%= tr.stat_title || 'Napi statisztika' %></h4>
+      <div class="stat-item">
+        <span class="stat-item-label"><%= tr.stat_peak_time || 'Csúcs ideje' %></span>
+        <span class="stat-item-val" id="rpt-peak-time">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-item-label"><%= tr.kpi_max || 'Maximum' %></span>
+        <span class="stat-item-val" style="color:var(--red)"><%= payload.kpi.max %> ppm</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-item-label"><%= tr.kpi_min || 'Minimum' %></span>
+        <span class="stat-item-val" style="color:var(--green)"><%= payload.kpi.min %> ppm</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-item-label"><%= tr.kpi_avg || 'Átlag' %></span>
+        <span class="stat-item-val" style="color:var(--purple)"><%= payload.kpi.avg %> ppm</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-item-label"><%= tr.stat_count || 'Mérések' %></span>
+        <span class="stat-item-val"><%= payload.chartData ? payload.chartData.length.toLocaleString() : '-' %></span>
+      </div>
+    </div>
+
+    <div class="stat-box" style="flex:1.8">
+      <h4><%= tr.quality_title || 'Levegőminőség-eloszlás' %></h4>
+      <% if (payload.timeStats) {
+        var ts = payload.timeStats;
+        var tot = (ts[0]||0)+(ts[1]||0)+(ts[2]||0)+(ts[3]||0);
+        var cats = [
+          {label: tr.quality_excellent||'Kiváló (<800)',      color:'#30d158', val: ts[0]||0},
+          {label: tr.quality_good||'Jó (800-1000)',           color:'#ffd60a', val: ts[1]||0},
+          {label: tr.quality_warning||'Figyelem (1000-1500)', color:'#ff9f0a', val: ts[2]||0},
+          {label: tr.quality_critical||'Kritikus (>1500)',    color:'#ff453a', val: ts[3]||0}
+        ];
+      %>
+      <div class="quality-grid">
+        <% cats.forEach(function(c) {
+          var pct = tot > 0 ? Math.round(c.val/tot*100) : 0;
+          var mins = Math.round(c.val);
+          var timeStr = mins <= 0 ? '0 ' + (tr.minute||'perc') : mins < 60 ? mins + ' ' + (tr.minute||'perc') : Math.floor(mins/60) + ' ' + (tr.hour||'óra') + (mins%60>0?' '+mins%60+' '+(tr.minute||'perc'):'');
+        %>
+        <div class="ql-row">
+          <div class="ql-dot" style="background:<%= c.color %>"></div>
+          <div class="ql-label"><%= c.label %></div>
+          <div class="ql-bar-bg">
+            <div class="ql-bar-fill" style="width:<%= pct %>%;background:<%= c.color %>"></div>
+          </div>
+          <div class="ql-pct" style="color:<%= c.color %>"><%= pct %>%</div>
+          <div class="ql-time"><%= timeStr %></div>
+        </div>
+        <% }); %>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Automatikus szöveges értékelés -->
+  <% if (payload.timeStats) {
+    var ts2 = payload.timeStats;
+    var tot2 = (ts2[0]||0)+(ts2[1]||0)+(ts2[2]||0)+(ts2[3]||0);
+    var warnPct = tot2>0 ? Math.round(((ts2[2]||0)+(ts2[3]||0))/tot2*100) : 0;
+    var critPct = tot2>0 ? Math.round((ts2[3]||0)/tot2*100) : 0;
+    var maxVal = payload.kpi.max;
+    var avgVal = payload.kpi.avg;
+  %>
+  <!-- Szellőzési sebesség eloszlás -->
+  <%
+    var sp = payload.speedBuckets || {};
+    var spTotal = (sp.calm||0)+(sp.slow||0)+(sp.medium||0)+(sp.fast||0);
+    var spPct = function(v){ return spTotal > 0 ? Math.round(v/spTotal*100) : 0; };
+  %>
+  <div class="section-title"><%= tr.rpt_speed_dist || 'Szellőzési sebesség eloszlás' %></div>
+  <div class="stat-box" style="margin-bottom:10px;padding:12px 16px">
+    <table style="width:100%;border-collapse:collapse;font-size:10px">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:4px 6px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:9px"><%= tr.rpt_speed_cat||'Kategória' %></th>
+          <th style="text-align:right;padding:4px 6px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:9px"><%= tr.rpt_speed_time||'Idő' %></th>
+          <th style="width:120px;padding:4px 10px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:9px"><%= tr.rpt_speed_ratio||'Arány' %></th>
+          <th style="text-align:right;padding:4px 6px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:9px">%</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% var spRows = [
+          { label: tr.rpt_speed_calm||'Nyugodt &lt;5 ppm/p', color: '#ff453a', val: sp.calm||0 },
+          { label: tr.rpt_speed_slow||'Lassú 5–20 ppm/p',   color: '#ff9f0a', val: sp.slow||0 },
+          { label: tr.rpt_speed_medium||'Közepes 20–60 ppm/p', color: '#ffd60a', val: sp.medium||0 },
+          { label: tr.rpt_speed_fast||'Gyors &gt;60 ppm/p', color: '#30d158', val: sp.fast||0 },
+        ]; %>
+        <% spRows.forEach(function(row){ var p2 = spPct(row.val); %>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:7px 6px">
+            <span style="display:inline-flex;align-items:center;gap:7px">
+              <span style="width:7px;height:7px;border-radius:50%;background:<%= row.color %>;flex-shrink:0;display:inline-block"></span>
+              <span style="color:var(--text2)"><%- row.label %></span>
+            </span>
+          </td>
+          <td style="text-align:right;padding:7px 6px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text)"><%= Math.round(row.val) %> min</td>
+          <td style="padding:7px 10px">
+            <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:<%= p2 %>%;background:<%= row.color %>;border-radius:3px"></div>
+            </div>
+          </td>
+          <td style="text-align:right;padding:7px 6px;font-family:'JetBrains Mono',monospace;font-weight:700;color:<%= row.color %>"><%= p2 %>%</td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:9px;color:var(--text2);padding:5px 6px;background:var(--card);border:1px solid var(--border);border-radius:6px">
+      <%= tr.rpt_total_period||'Összesen' %>: <strong style="color:var(--text)"><%= Math.round(spTotal) %> <%= tr.rpt_min_label||'perc' %></strong>
+      &nbsp;·&nbsp; <%= tr.rpt_fast_vent||'Gyors szellőzés (nyitott ablak)' %>: <strong style="color:#30d158"><%= spPct(sp.fast||0) %>%</strong>
+    </div>
+  </div>
+
+    <div class="section-title"><%= tr.report_eval_title %></div>
+  <div id="eval-box" style="background:#f8f8fc;border:1px solid #e0e0f0;border-radius:10px;padding:10px 14px;font-size:10px;color:#4a4a6a;line-height:1.7">
+    A vizsgált napon (<strong><%= date %></strong>) összesen <strong><%= payload.chartData ? payload.chartData.length.toLocaleString() : '-' %></strong> mérés készült.
+    A napi átlagos CO2-szint <strong><%= avgVal %> ppm</strong> volt, a csúcsérték <strong><%= maxVal %> ppm</strong>.
+    <% if (critPct > 10) { %>
+    A nap <strong style="color:#ff453a"><%= critPct %>%-ában</strong> Kritikus zónában (<strong>&gt;1500 ppm</strong>) volt a CO2-szint, ami fokozott szellőztetést igényel.
+    <% } else if (warnPct > 50) { %>
+    A nap <strong style="color:#ff9f0a"><%= warnPct %>%-ában</strong> Figyelem vagy Kritikus zónában volt a CO2-szint.
+    <% } else { %>
+    A levegőminőség a nap nagy részében elfogadható szinten volt.
+    <% } %>
+  </div>
+  <% } %>
+
+  <% } %>
+
+  <!-- Footer -->
+  <div class="report-footer">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img src="/static/qr.png" alt="QR" style="width:52px;height:52px;border-radius:6px;border:1px solid var(--border)">
+      <div>
+        <div style="font-size:9px;font-weight:700;color:var(--text)">GrexAir CO₂ Monitor</div>
+        <div style="font-size:8px;margin-top:2px"><%= tr.report_auto_gen %></div>
+        <div style="font-size:8px;margin-top:1px"><%= tr.report_generated %> <span id="gen-time"></span></div>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:8px">
+      <div style="font-size:9px;font-weight:700;color:var(--text);margin-bottom:2px"><%= tr.report_live_data %></div>
+      <div><%= tr.report_qr_scan.split(' az ')[0] %></div>
+      <div><%= tr.report_live_data.toLowerCase() %></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  // Generálás ideje
+  document.getElementById('gen-time').textContent = new Date().toLocaleString('<%= lang %>');
+
+  // Téma toggle
+  var isDark = <%= isDarkInit ? 'true' : 'false' %>;
+  var TR = {};
+  try { TR = <%- JSON.stringify(tr) %>; } catch(e) {}
+  function toggleTheme() {
+    isDark = !isDark;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    var btn = document.getElementById('theme-toggle-btn');
+    btn.textContent = isDark
+      ? '☀️ ' + (TR.report_theme_light || 'Világos')
+      : '🌙 ' + (TR.report_theme_dark  || 'Sötét');
+    // reload with new theme to get proper colors
+    var url = new URL(window.location.href);
+    url.searchParams.set('theme', isDark ? 'dark' : 'light');
+    window.location.href = url.toString();
+  }
+
+  // ── Interaktív grafikon Chart.js-sel ──────────────────────
+  (function buildChart() {
+    var ctx = document.getElementById('rpt-chart');
+    if (!ctx) return;
+
+    var PTS   = <%- JSON.stringify((full && full.chartPoints) ? full.chartPoints : []) %>;
+    var MAX_V = <%= (full && full.kpi) ? full.kpi.max : 0 %>;
+    var MIN_V = <%= (full && full.kpi) ? full.kpi.min : 0 %>;
+    var dark  = isDark;
+
+    if (!PTS || PTS.length === 0) {
+      ctx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:220px;color:var(--text2);font-size:12px">Nincs adat</div>';
+      return;
+    }
+
+    var labels = PTS.map(function(p){ return p.x; });
+    var raw    = PTS.map(function(p){ return p.y; });
+    var trend  = PTS.map(function(p){ return p.t; });
+    var maxArr = labels.map(function(){ return MAX_V; });
+    var minArr = labels.map(function(){ return MIN_V; });
+
+    var tickC = dark ? 'rgba(255,255,255,.38)' : 'rgba(11,18,34,.45)';
+    var gridC = dark ? 'rgba(255,255,255,.06)' : 'rgba(11,18,34,.07)';
+
+    // Plugin: draw MAX/MIN labels on chart
+    var minMaxPlugin = {
+      id: 'minMaxLabels',
+      afterDraw: function(chart) {
+        var ctx2 = chart.ctx;
+        var yAxis = chart.scales.y;
+        var xAxis = chart.scales.x;
+        if (!yAxis || !xAxis) return;
+        var maxY = yAxis.getPixelForValue(MAX_V);
+        var minY = yAxis.getPixelForValue(MIN_V);
+        var right = xAxis.right;
+        ctx2.save();
+        ctx2.font = 'bold 9px JetBrains Mono, monospace';
+        ctx2.textAlign = 'right';
+        ctx2.fillStyle = 'rgba(255,69,58,0.85)';
+        ctx2.fillText('MAX ' + MAX_V, right - 4, maxY - 4);
+        ctx2.fillStyle = 'rgba(48,209,88,0.85)';
+        ctx2.fillText('MIN ' + MIN_V, right - 4, minY + 11);
+        ctx2.restore();
+      }
+    };
+
+    var chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Henderson trend',
+            data: trend,
+            borderColor: '#0a84ff',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.3,
+            order: 1,
+          },
+          {
+            label: 'Nyers mérés',
+            data: raw,
+            borderColor: dark ? 'rgba(10,132,255,.30)' : 'rgba(10,100,220,.28)',
+            borderWidth: 1.2,
+            pointRadius: 0,
+            tension: 0.1,
+            fill: { target: 'origin', above: dark ? 'rgba(10,132,255,.05)' : 'rgba(10,100,220,.04)' },
+            order: 2,
+          },
+          {
+            label: 'MAX', data: maxArr,
+            borderColor: 'rgba(255,69,58,.55)', borderWidth: 1,
+            borderDash: [5,3], pointRadius: 0, fill: false, order: 3,
+          },
+          {
+            label: 'MIN', data: minArr,
+            borderColor: 'rgba(48,209,88,.55)', borderWidth: 1,
+            borderDash: [5,3], pointRadius: 0, fill: false, order: 4,
+          }
+        ]
+      },
+      plugins: [minMaxPlugin],
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: dark ? 'rgba(15,20,35,.92)' : 'rgba(255,255,255,.95)',
+            titleColor: dark ? 'rgba(255,255,255,.9)' : '#0b1222',
+            bodyColor: dark ? 'rgba(255,255,255,.65)' : 'rgba(11,18,34,.65)',
+            borderColor: dark ? 'rgba(255,255,255,.12)' : 'rgba(11,18,34,.10)',
+            borderWidth: 1,
+            callbacks: {
+              label: function(c) {
+                if (c.datasetIndex > 1) return null;
+                return c.dataset.label + ': ' + c.raw + ' ppm';
+              }
+            }
+          },
+          minMaxLabels: {},
+          zoom: {
+            zoom: {
+              drag: {
+                enabled: true,
+                backgroundColor: dark ? 'rgba(10,132,255,.12)' : 'rgba(10,100,220,.10)',
+                borderColor: dark ? 'rgba(10,132,255,.5)' : 'rgba(10,100,220,.4)',
+                borderWidth: 1,
+              },
+              wheel: { enabled: true, speed: 0.08 },
+              pinch: { enabled: true },
+              mode: 'x',
+              onZoom: function() {
+                var btn = document.getElementById('rpt-reset-btn');
+                if (btn) btn.style.display = 'inline-block';
+              }
+            },
+            pan: { enabled: true, mode: 'x', modifierKey: 'shift' }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: tickC, font: { family: "'JetBrains Mono',monospace", size: 10 }, maxTicksLimit: 8, maxRotation: 0 },
+            grid: { color: gridC, drawBorder: false },
+            border: { display: false }
+          },
+          y: {
+            ticks: { color: tickC, font: { family: "'JetBrains Mono',monospace", size: 10 }, callback: function(v){ return v + ' ppm'; } },
+            grid: { color: gridC, drawBorder: false },
+            border: { display: false }
+          }
+        }
+      }
+    });
+
+    ctx.addEventListener('dblclick', function() {
+      chart.resetZoom();
+      var btn = document.getElementById('rpt-reset-btn');
+      if (btn) btn.style.display = 'none';
+    });
+    window.resetRptZoom = function() {
+      chart.resetZoom();
+      var btn = document.getElementById('rpt-reset-btn');
+      if (btn) btn.style.display = 'none';
+    };
+  })();
+
+  // Csúcs ideje sessionStorage-ból
+  var peakTime = sessionStorage.getItem('grexair_peak_time');
+  var peakEl = document.getElementById('rpt-peak-time');
+  if (peakEl && peakTime) peakEl.textContent = peakTime;
+
+  // Automatikus print megnyitás (opcionális - kommenteld ki ha nem kell)
+  // window.addEventListener('load', function() { setTimeout(window.print, 600); });
+</script>
+</body>
+</html>

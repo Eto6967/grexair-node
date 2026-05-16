@@ -1,22 +1,25 @@
 [🇬🇧 English](README.md) · 🇭🇺 Magyar
+
 <p align="center">
-  <img src="GreexAir/public/images/logo.png" alt="GrexAir Logo" width="120" style="border-radius:20px">
+  <img src="public/logo.png" alt="GrexAir Logo" width="120" style="border-radius:20px">
 </p>
 
 <h1 align="center">GrexAir</h1>
 
 <p align="center">
   <b>Intelligens CO₂ felügyeleti rendszer zárt területekhez.</b><br>
-  <i>Valós idejű monitoring · Prediktív analitika · Arduino integráció</i>
+  <i>Valós idejű monitoring · Szellőztetési javaslat · Arduino integráció</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-3.0.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white">
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white">
   <img src="https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white">
 </p>
+
+> 🤖 **AI-irányított fejlesztés**  A projektet irányított AI-fejlesztéssel készítettük: a funkciókat, az architektúrát és a design döntéseket a fejlesztő határozta meg, a megvalósítást prompt engineering segítségével vezérelve. Az eredmény egy ember által irányított, AI-gyorsított kódbázis.
 
 ---
 
@@ -26,7 +29,7 @@
   <img src="screenshots/dashboard.png" alt="GrexAir Dashboard" width="900">
 </p>
 
-> *CO₂ Monitoring dashboard valós idejű adatok, színkódolt kártyák, Min/Max vonalak*
+> *CO₂ Monitoring dashboard  valós idejű adatok, színkódolt kártyák, interaktív grafikonok, CO₂ hőtérkép*
 
 ---
 
@@ -41,28 +44,62 @@ A **GrexAir** egy IoT megoldás zárt területek (irodák, tantermek, raktárak)
 | Funkció | Leírás |
 | :--- | :--- |
 | 📊 **Valós idejű dashboard** | Socket.io alapú 3 másodperces frissítés |
-| 🎨 **Dinamikus kártyaszínek** | A számok és a kártyák CO₂ szint szerint színeződnek (zöld → sárga → narancs → piros) |
-| 📈 **Min/Max jelölők** | Szaggatott piros/zöld vízszintes vonalak minden grafikonon |
-| 🧠 **Savitzky-Golay szűrő** | Zajmentes trendvonal a nyers mérések mellett |
+| 🎨 **Dinamikus kártyaszínek** | A számok és háttérek CO₂ szint szerint színeződnek |
+| 📈 **Min/Max jelölők** | Szaggatott referencia vonalak minden grafikonon |
+| 🧠 **Kálmán szűrő** | Zajmentes trendvonal a nyers mérések mellett |
 | ⚡ **Sebesség & Gyorsulás** | A CO₂ változás dinamikájának elemzése |
-| 🟢 **Online/Offline jelző** | 5 perces timeout után automatikusan OFFLINE státusz |
-| 📅 **Archívum böngésző** | Korábbi napok adatainak visszakeresése naptárból |
+| 🟢 **Online/Offline jelző** | 3 perces adathiány után automatikusan OFFLINE státusz |
+| 📅 **Archívum böngésző** | Naptár stílusú dátumválasztó modal  kattints bármelyik napra |
+| 🔍 **Időalapú zoom** | Összes / 1ó / 30p / 15p zoom minden grafikonon |
+| 🌬️ **Szellőztetési javaslat** | Valós idejű javaslat a CO₂ szint és trend alapján |
+| 🌡️ **Szellőzési sebesség eloszlás** | Élő kártya: nyugodt / lassú / közepes / gyors percek |
+| 🗓️ **CO₂ hőtérkép** | GitHub-stílusú naptárnézet az elmúlt 26 hét napi átlagaival, zóna szerint színezve |
 | 📤 **CSV export** | Összes adat letöltése egy kattintással |
-| 🌙 **Sötét/Világos téma** | Átkapcsolható, localStorage-ba mentett téma |
+| 📄 **PDF riport** | Teljes oldalas riport interaktív grafikonnal, statisztikákkal, szellőzési eloszlással és AI értékeléssel |
+| 🌙 **Sötét / Világos téma** | Átkapcsolható a dashboardon és a PDF riportban egyaránt |
+| 🌍 **10 nyelv** | HU · EN · DE · HR · RO · RU · SK · SL · SR · UK |
 | 📱 **Reszponzív design** | Mobil és tablet optimalizált elrendezés |
 
 ---
 
 ## 🖥️ Dashboard elemek
 
-- **5 KPI kártya** Jelenlegi, Átlag, Maximum, Minimum, Tartomány
-- **CO₂ koncentráció grafikon** Nyers + Savitzky-Golay trendvonal, zoom gombok
-- **Aktuális szint gauge** Félkör műszerfal valós PPM értékkel
-- **Változási sebesség grafikon** ppm/perc
-- **Gyorsulás grafikon** Δ sebesség változása
-- **Időbeli eloszlás** Vízszintes bar chart kategóriánként
-- **Levegőminőség sávok** Napi százalékos eloszlás
-- **Eseménynapló** Automatikus riasztás küszöbátlépésnél
+- **5 KPI kártya**  Utolsó, Átlag, Maximum, Minimum, Tartomány
+- **Státusz csík**  Zóna felirat az aktuális PPM értékkel (Kiváló / Jó / Figyelem / Kritikus)
+- **CO₂ koncentráció grafikon** Nyers + Kálmán trendvonal időalapú zoommal
+- **Aktuális szint gauge**  Félkör műszerfal valós PPM értékkel és zóna jelölőkkel
+- **Sebesség grafikon**  ppm/perc
+- **Gyorsulás grafikon**  Δ sebesség változása
+- **Szellőzési állapot panel** Élő állapot (gyorsuló / egyenletes / lassuló / romló) színes sávval
+- **Szellőzési sebesség eloszlás**  Vízszintes sávok: Nyugodt / Lassú / Közepes / Gyors percek naponta
+- **CO₂ hőtérkép**  Az elmúlt 26 hét naptárnézete, napi átlag szerint színezve; rámutatva részletek
+- **Levegőminőség sávok**  Napi százalékos eloszlás zónánként
+- **Eseménynapló**  Automatikus riasztás küszöbátlépésnél
+- **Szellőztetési napló**  Rögzített szellőztetési események időponttal, időtartammal és CO₂ csökkenéssel
+
+---
+
+## 📄 PDF Riport
+
+A dashboardról elérhető generált riport tartalmazza:
+
+- **KPI összefoglaló sor** Utolsó, Átlag, Maximum, Minimum, Tartomány
+- **Státusz csík** A nap zóna besorolása
+- **Interaktív CO₂ grafikon** Húzd a kijelöléshez, görgesd a zoomhoz, dupla klikk a visszaállításhoz; MAX/MIN feliratok nyomtatáson is láthatók
+- **Napi statisztika tábla**  Csúcs ideje, max, min, átlag, mérésszám
+- **Levegőminőség eloszlás** Színes sávok százalékkal és percekkel
+- **Szellőzési sebesség eloszlás**  Tábla nyugodt/lassú/közepes/gyors bontással
+- **Értékelés szöveg** Automatikusan generált összefoglaló zóna elemzéssel
+- **QR kód** Az élő monitorra mutató hivatkozás
+- **Sötét / Világos téma váltó** Átveszi a webes témát, a riportban is váltható
+
+---
+
+## 🌍 Többnyelvű támogatás
+
+A felület, az összes dashboard felirat, státusz szöveg és a PDF riport teljes egészében a kiválasztott nyelvhez igazodik. A nyelv cookie-ban tárolódik és szerver oldalon kerül be minden oldal renderelésébe. Támogatott nyelvek:
+
+`Magyar · Angol · Német · Horvát · Román · Orosz · Szlovák · Szlovén · Szerb · Ukrán`
 
 ---
 
@@ -73,10 +110,11 @@ A **GrexAir** egy IoT megoldás zárt területek (irodák, tantermek, raktárak)
 | **Backend** | Node.js + Express.js |
 | **Valós idejű** | Socket.io |
 | **Frontend** | EJS + Vanilla JS |
-| **Grafikonok** | Chart.js 4.4 |
-| **Adatbázis** | PostgreSQL — Neon.tech cloud |
-| **Algoritmus** | Savitzky-Golay (`ml-savitzky-golay`) |
-| **Stílus** | Egyedi CSS — glassmorphism, aurora animáció |
+| **Grafikonok** | Chart.js 4.4 + chartjs-plugin-zoom + uPlot |
+| **Adatbázis** | PostgreSQL Neon.tech cloud |
+| **Jelszűrő** | Kálmán szűrő (saját implementáció) |
+| **Stílus** | Egyedi CSS glassmorphism, aurora animáció |
+| **Többnyelvűség** | JSON locale fájlok + szerver oldali `tr` injektálás |
 
 ---
 
@@ -121,23 +159,28 @@ Megnyitás: **http://localhost:5000**
 ## 📂 Projektstruktúra
 
 ```
-GreexAir/
-├── server.js          ← Webszerver, API végpontok, Socket.io
-├── dataManager.js     ← DB kapcsolat, cache, Savitzky-Golay analízis
-├── config.js          ← Küszöbértékek, konfigurációk
-├── .env               ← Adatbázis URL (nem kerül git-be!)
+grexair/
+├── server.js           ← Webszerver, API végpontok, Socket.io, riport route
+├── dataManager.js      ← DB kapcsolat, Kálmán szűrő, sebesség bucket, hőtérkép
+├── translations.js     ← Locale betöltő
+├── config.js           ← Küszöbértékek, konfigurációk
+├── .env                ← Adatbázis URL (nem kerül git-be!)
+├── locales/
+│   ├── hu.json         ← Magyar szövegek
+│   ├── en.json         ← Angol szövegek
+│   └── ...             ← 8 további nyelv
 ├── public/
 │   ├── css/
-│   │   └── grexair.css      ← Teljes design rendszer
+│   │   └── grexair.css       ← Teljes design rendszer
 │   ├── js/
-│   │   ├── monitor.js       ← Dashboard logika, grafikonok, socket
-│   │   ├── main.js          ← Demo és upload oldalak
-│   │   └── theme.js         ← Sötét/világos téma kezelés
-│   └── logo.png             ← GrexAir logó
+│   │   ├── monitor.js        ← Dashboard logika, grafikonok, socket
+│   │   └── theme.js          ← Sötét/világos téma kezelés
+│   └── logo.png
 └── views/
-    ├── monitor.ejs    ← Fő dashboard
-    ├── index.ejs      ← Demo oldal
-    └── live.ejs       ← CSV feltöltő oldal
+    ├── monitor.ejs     ← Fő dashboard (hőtérkép, sebesség eloszlás, dátum modal)
+    ├── report.ejs      ← PDF riport nézet
+    ├── live.ejs        ← CSV feltöltő oldal
+    └── index.ejs       ← Demo oldal
 ```
 
 ---
@@ -148,9 +191,19 @@ GreexAir/
 | :--- | :--- | :--- |
 | < 800 ppm | 🟢 Kiváló | Zöld |
 | 800–1000 ppm | 🟡 Jó | Sárga |
-| 1000–1200 ppm | 🟠 Elfogadható | Narancs |
-| 1200–1500 ppm | 🔴 Figyelem | Narancsvörös |
-| > 1500 ppm | 🚨 Veszélyes | Piros (pulzáló) |
+| 1000–1500 ppm | 🟠 Figyelem | Narancs |
+| > 1500 ppm | 🔴 Kritikus | Piros (pulzáló) |
+
+---
+
+## 🌬️ Szellőzési sebesség kategóriák
+
+| Kategória | Sebesség | Jelentés |
+| :--- | :--- | :--- |
+| 🔴 Nyugodt | < 5 ppm/perc | Nincs érdemi légcsere |
+| 🟠 Lassú | 5–20 ppm/perc | Enyhe szellőzés |
+| 🟡 Közepes | 20–60 ppm/perc | Aktív szellőzés |
+| 🟢 Gyors | > 60 ppm/perc | Gyors légcsere (nyitott ablak) |
 
 ---
 
@@ -160,9 +213,12 @@ GreexAir/
 | :--- | :--- | :--- |
 | `/` | GET | Fő dashboard |
 | `/api/history` | POST | Archív nap adatai `{ date: "YYYY-MM-DD" }` |
-| `/api/esp32` | GET | Aktuális PPM — ESP32 kijelzőhöz |
+| `/api/heatmap` | GET | Napi átlagok az elmúlt évre (hőtérkép) |
+| `/api/esp32` | GET | Aktuális PPM  ESP32 kijelzőhöz |
+| `/report` | GET | PDF riport `?date=ÉÉÉÉ-HH-NN&theme=dark|light` |
 | `/demo` | GET | Demo adatok (SENSOR.CSV) |
 | `/upload` | POST | CSV feltöltés és elemzés |
+| `/set-lang/:lang` | GET | Felület nyelvének váltása |
 
 ---
 
@@ -183,6 +239,6 @@ Az ESP32 az aktuális értéket a `/api/esp32` végpontról kérheti le:
 ---
 
 <p align="center">
-  <b>GrexAir v2.0 • Nyílt forráskódú IoT projekt</b><br>
+  <b>GrexAir v3.0 • Nyílt forráskódú IoT projekt</b><br>
   <i>A biztonságosabb beltéri levegőért 🌱</i>
 </p>
